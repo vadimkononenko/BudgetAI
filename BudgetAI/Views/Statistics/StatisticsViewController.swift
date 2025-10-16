@@ -42,12 +42,25 @@ final class StatisticsViewController: UIViewController {
 
     private lazy var periodFilterButton: UIButton = {
         let button = UIButton(type: .system)
-        button.setTitle("Поточний місяць", for: .normal)
-        button.titleLabel?.font = .systemFont(ofSize: 16, weight: .semibold)
-        button.backgroundColor = .secondarySystemBackground
-        button.setTitleColor(.label, for: .normal)
-        button.layer.cornerRadius = 12
-        button.contentHorizontalAlignment = .center
+        var configuration = UIButton.Configuration.filled()
+        
+        configuration.title = "Поточний місяць"
+        configuration.baseBackgroundColor = .secondarySystemBackground
+        configuration.baseForegroundColor = .label
+        
+        configuration.image = UIImage(systemName: "chevron.down", withConfiguration: UIImage.SymbolConfiguration(weight: .light))
+        configuration.imagePlacement = .trailing
+        configuration.imagePadding = 8.0
+        
+        configuration.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
+            var outgoing = incoming
+            outgoing.font = .systemFont(ofSize: 16, weight: .semibold)
+            return outgoing
+        }
+        
+        configuration.cornerStyle = .large
+        
+        button.configuration = configuration
         button.showsMenuAsPrimaryAction = true
         return button
     }()
@@ -377,7 +390,7 @@ final class StatisticsViewController: UIViewController {
             image: selectedPeriod == .currentMonth ? UIImage(systemName: "checkmark") : nil
         ) { [weak self] _ in
             self?.selectedPeriod = .currentMonth
-            self?.periodFilterButton.setTitle("Поточний місяць", for: .normal)
+            self?.periodFilterButton.configuration?.title = "Поточний місяць"
             self?.updatePeriodFilterMenu()
             self?.fetchData()
         }
@@ -408,7 +421,7 @@ final class StatisticsViewController: UIViewController {
                     image: isSelected ? UIImage(systemName: "checkmark") : nil
                 ) { [weak self] _ in
                     self?.selectedPeriod = .specificMonth(month: monthYear.month, year: monthYear.year)
-                    self?.periodFilterButton.setTitle(title, for: .normal)
+                    self?.periodFilterButton.configuration?.title = title
                     self?.updatePeriodFilterMenu()
                     self?.fetchData()
                 }
@@ -424,7 +437,7 @@ final class StatisticsViewController: UIViewController {
             image: selectedPeriod == .currentYear ? UIImage(systemName: "checkmark") : nil
         ) { [weak self] _ in
             self?.selectedPeriod = .currentYear
-            self?.periodFilterButton.setTitle("Поточний рік", for: .normal)
+            self?.periodFilterButton.configuration?.title = "Поточний рік"
             self?.updatePeriodFilterMenu()
             self?.fetchData()
         }
@@ -435,7 +448,7 @@ final class StatisticsViewController: UIViewController {
             image: selectedPeriod == .allTime ? UIImage(systemName: "checkmark") : nil
         ) { [weak self] _ in
             self?.selectedPeriod = .allTime
-            self?.periodFilterButton.setTitle("За весь час", for: .normal)
+            self?.periodFilterButton.configuration?.title = "За весь час"
             self?.updatePeriodFilterMenu()
             self?.fetchData()
         }

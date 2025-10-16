@@ -20,6 +20,10 @@ final class BudgetViewController: UIViewController {
     private var selectedYear: Int16 = 0
 
     // MARK: - UI Components
+    
+    private lazy var addBarButtonItem: UIBarButtonItem = {
+        return UIBarButtonItem(barButtonSystemItem: .add, target: self, action: #selector(addButtonTapped))
+    }()
 
     private lazy var tableView: UITableView = {
         let tableView = UITableView(frame: .zero, style: .insetGrouped)
@@ -28,17 +32,6 @@ final class BudgetViewController: UIViewController {
         tableView.delegate = self
         tableView.dataSource = self
         return tableView
-    }()
-
-    private lazy var addButton: UIButton = {
-        let button = UIButton(type: .system)
-        button.setTitle("+", for: .normal)
-        button.titleLabel?.font = .systemFont(ofSize: 32, weight: .bold)
-        button.backgroundColor = .systemBlue
-        button.setTitleColor(.white, for: .normal)
-        button.layer.cornerRadius = 28
-        button.addTarget(self, action: #selector(addButtonTapped), for: .touchUpInside)
-        return button
     }()
 
     private lazy var previousMonthButton: UIButton = {
@@ -76,7 +69,7 @@ final class BudgetViewController: UIViewController {
 
     private lazy var emptyStateLabel: UILabel = {
         let label = UILabel()
-        label.text = "Немає бюджетів\nДодайте новий бюджет, натиснувши +"
+        label.text = "Немає бюджетів\nДодайте новий бюджет, натиснувши «+»"
         label.font = .systemFont(ofSize: 16, weight: .regular)
         label.textColor = .secondaryLabel
         label.textAlignment = .center
@@ -110,13 +103,13 @@ final class BudgetViewController: UIViewController {
         title = "Бюджети"
         view.backgroundColor = .systemBackground
         navigationController?.navigationBar.prefersLargeTitles = true
+        navigationItem.rightBarButtonItem = addBarButtonItem
 
         view.addSubview(previousMonthButton)
         view.addSubview(monthYearLabel)
         view.addSubview(nextMonthButton)
         view.addSubview(archiveLabel)
         view.addSubview(tableView)
-        view.addSubview(addButton)
         view.addSubview(emptyStateLabel)
 
         previousMonthButton.snp.makeConstraints { make in
@@ -144,12 +137,6 @@ final class BudgetViewController: UIViewController {
         tableView.snp.makeConstraints { make in
             make.top.equalTo(archiveLabel.snp.bottom).offset(8)
             make.leading.trailing.bottom.equalToSuperview()
-        }
-
-        addButton.snp.makeConstraints { make in
-            make.trailing.equalToSuperview().offset(-24)
-            make.bottom.equalTo(view.safeAreaLayoutGuide).offset(-24)
-            make.width.height.equalTo(56)
         }
 
         emptyStateLabel.snp.makeConstraints { make in
@@ -214,13 +201,13 @@ final class BudgetViewController: UIViewController {
     private func updateUIForCurrentMonth() {
         let isCurrentMonth = (selectedMonth == currentMonth && selectedYear == currentYear)
 
-        addButton.isHidden = !isCurrentMonth
+        navigationItem.rightBarButtonItem = isCurrentMonth ? addBarButtonItem : nil
         archiveLabel.isHidden = isCurrentMonth
 
         if !isCurrentMonth {
             emptyStateLabel.text = "Немає бюджетів за цей місяць"
         } else {
-            emptyStateLabel.text = "Немає бюджетів\nДодайте новий бюджет, натиснувши +"
+            emptyStateLabel.text = "Немає бюджетів\nДодайте новий бюджет, натиснувши «+»"
         }
     }
 
