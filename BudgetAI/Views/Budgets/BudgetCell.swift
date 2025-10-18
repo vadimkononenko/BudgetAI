@@ -63,7 +63,7 @@ final class BudgetCell: UITableViewCell {
     // MARK: - Setup
 
     private func setupUI() {
-        selectionStyle = .none
+        selectionStyle = .default
 
         contentView.addSubview(iconLabel)
         contentView.addSubview(categoryNameLabel)

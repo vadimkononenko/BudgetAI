@@ -395,8 +395,15 @@ extension BudgetViewController: UITableViewDelegate {
         return 100
     }
 
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        tableView.deselectRow(at: indexPath, animated: true)
+
+        let budget = budgets[indexPath.row]
+        let detailVC = BudgetDetailViewController(budget: budget, month: selectedMonth, year: selectedYear)
+        navigationController?.pushViewController(detailVC, animated: true)
+    }
+
     func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
-        // Только для текущего месяца разрешаем удаление
         guard selectedMonth == currentMonth && selectedYear == currentYear else {
             return nil
         }
