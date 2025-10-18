@@ -9,12 +9,23 @@ import UIKit
 
 final class MainTabBarController: UITabBarController {
 
+    // MARK: - Initialization
+
+    init(transactionsVC: TransactionsViewController, budgetVC: BudgetViewController, statisticsVC: StatisticsViewController) {
+        super.init(nibName: nil, bundle: nil)
+        setupTabBar()
+        setupViewControllers(transactionsVC: transactionsVC, budgetVC: budgetVC, statisticsVC: statisticsVC)
+    }
+
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+    }
+
     // MARK: - Lifecycle
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        setupTabBar()
-        setupViewControllers()
+        // Setup already done in init
     }
 
     // MARK: - Setup
@@ -24,8 +35,7 @@ final class MainTabBarController: UITabBarController {
         tabBar.backgroundColor = .systemBackground
     }
 
-    private func setupViewControllers() {
-        let transactionsVC = TransactionsViewController()
+    private func setupViewControllers(transactionsVC: TransactionsViewController, budgetVC: BudgetViewController, statisticsVC: StatisticsViewController) {
         let transactionsNav = UINavigationController(rootViewController: transactionsVC)
         transactionsNav.tabBarItem = UITabBarItem(
             title: "Транзакції",
@@ -33,15 +43,13 @@ final class MainTabBarController: UITabBarController {
             selectedImage: UIImage(systemName: "list.bullet")
         )
 
-        let budgetsVC = BudgetViewController()
-        let budgetsNav = UINavigationController(rootViewController: budgetsVC)
+        let budgetsNav = UINavigationController(rootViewController: budgetVC)
         budgetsNav.tabBarItem = UITabBarItem(
             title: "Бюджети",
             image: UIImage(systemName: "chart.bar"),
             selectedImage: UIImage(systemName: "chart.bar.fill")
         )
 
-        let statisticsVC = StatisticsViewController()
         let statisticsNav = UINavigationController(rootViewController: statisticsVC)
         statisticsNav.tabBarItem = UITabBarItem(
             title: "Статистика",

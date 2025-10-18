@@ -36,34 +36,41 @@ final class DefaultData {
     ]
 
     static func initializeDefaultCategories() {
-        let manager = CoreDataManager.shared
-        let context = manager.context
+        let repository = CoreDataCategoryRepository()
 
-        let existingCategories: [Category] = manager.fetch(Category.self)
-        guard existingCategories.isEmpty else {
-            print("Categories already exist, skipping initialization")
-            return
+        let existingResult = repository.fetchAllCategories()
+
+        switch existingResult {
+        case .success(let existingCategories):
+            guard existingCategories.isEmpty else {
+                print("Categories already exist, skipping initialization")
+                return
+            }
+
+            // Create expense categories
+            for categoryData in expenseCategories {
+                _ = repository.createCategory(
+                    name: categoryData.name,
+                    colorHex: categoryData.colorHex,
+                    icon: categoryData.icon,
+                    type: categoryData.type
+                )
+            }
+
+            // Create income categories
+            for categoryData in incomeCategories {
+                _ = repository.createCategory(
+                    name: categoryData.name,
+                    colorHex: categoryData.colorHex,
+                    icon: categoryData.icon,
+                    type: categoryData.type
+                )
+            }
+
+            print("✅ Default categories initialized successfully")
+
+        case .failure(let error):
+            print("❌ Failed to initialize default categories: \(error.localizedDescription)")
         }
-
-        for categoryData in expenseCategories {
-            let category = manager.create(Category.self)
-            category.id = UUID()
-            category.name = categoryData.name
-            category.colorHex = categoryData.colorHex
-            category.icon = categoryData.icon
-            category.type = categoryData.type
-        }
-
-        for categoryData in incomeCategories {
-            let category = manager.create(Category.self)
-            category.id = UUID()
-            category.name = categoryData.name
-            category.colorHex = categoryData.colorHex
-            category.icon = categoryData.icon
-            category.type = categoryData.type
-        }
-
-        manager.saveContext()
-        print("Default categories initialized successfully")
     }
 }

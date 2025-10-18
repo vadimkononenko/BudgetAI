@@ -176,7 +176,15 @@ final class AddBudgetViewController: UIViewController {
 
     private func fetchCategories() {
         let predicate = NSPredicate(format: "type == %@", "expense")
-        expenseCategories = coreDataManager.fetch(Category.self, predicate: predicate)
+        let result = coreDataManager.fetch(Category.self, predicate: predicate)
+        
+        switch result {
+        case .success(let categories):
+            expenseCategories = categories
+        case .failure(let error):
+            print("Failed to fetch categories: \(error)")
+            expenseCategories = []
+        }
     }
 
     private func setupCategoryMenu() {
@@ -227,9 +235,14 @@ final class AddBudgetViewController: UIViewController {
         budget.isActive = true
         budget.category = category
 
-        coreDataManager.saveContext()
-        delegate?.didAddBudget()
-        dismiss(animated: true)
+        let result = coreDataManager.saveContext()
+        switch result {
+        case .success:
+            delegate?.didAddBudget()
+            dismiss(animated: true)
+        case .failure(let error):
+            showAlert(title: "Помилка", message: "Не вдалося зберегти бюджет: \(error.localizedDescription)")
+        }
     }
 
     @objc private func cancelButtonTapped() {

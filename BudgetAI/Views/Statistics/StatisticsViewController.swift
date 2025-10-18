@@ -12,6 +12,7 @@ final class StatisticsViewController: UIViewController {
 
     // MARK: - Properties
 
+    private let viewModel: StatisticsViewModel
     private let coreDataManager = CoreDataManager.shared
     private var expenses: [Transaction] = []
     private var incomes: [Transaction] = []
@@ -198,6 +199,19 @@ final class StatisticsViewController: UIViewController {
         return view
     }()
 
+    // MARK: - Initialization
+
+    init(viewModel: StatisticsViewModel) {
+        self.viewModel = viewModel
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    required init?(coder: NSCoder) {
+        // For Storyboard compatibility (not used)
+        self.viewModel = DIContainer.shared.makeStatisticsViewModel()
+        super.init(coder: coder)
+    }
+
     // MARK: - Lifecycle
 
     override func viewDidLoad() {
@@ -356,7 +370,17 @@ final class StatisticsViewController: UIViewController {
     }
 
     private func loadAvailableMonths() {
-        let allTransactions: [Transaction] = coreDataManager.fetch(Transaction.self)
+        let result = coreDataManager.fetch(Transaction.self)
+        let allTransactions: [Transaction]
+        
+        switch result {
+        case .success(let transactions):
+            allTransactions = transactions
+        case .failure(let error):
+            print("Error fetching transactions: \(error)")
+            allTransactions = []
+        }
+        
         let calendar = Calendar.current
 
         var monthYearSet: Set<String> = []
@@ -488,7 +512,16 @@ final class StatisticsViewController: UIViewController {
             predicate = nil
         }
 
-        let allTransactions: [Transaction] = coreDataManager.fetch(Transaction.self, predicate: predicate)
+        let result = coreDataManager.fetch(Transaction.self, predicate: predicate)
+        let allTransactions: [Transaction]
+        
+        switch result {
+        case .success(let transactions):
+            allTransactions = transactions
+        case .failure(let error):
+            print("Error fetching transactions: \(error)")
+            allTransactions = []
+        }
 
         expenses = allTransactions.filter { $0.type == "expense" }
         incomes = allTransactions.filter { $0.type == "income" }

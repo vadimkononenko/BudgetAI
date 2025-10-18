@@ -12,6 +12,7 @@ final class BudgetViewController: UIViewController {
 
     // MARK: - Properties
 
+    private let viewModel: BudgetViewModel
     private let coreDataManager = CoreDataManager.shared
     private var budgets: [Budget] = []
     private var currentMonth: Int16 = 0
@@ -77,6 +78,19 @@ final class BudgetViewController: UIViewController {
         label.isHidden = true
         return label
     }()
+
+    // MARK: - Initialization
+
+    init(viewModel: BudgetViewModel) {
+        self.viewModel = viewModel
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    required init?(coder: NSCoder) {
+        // For Storyboard compatibility (not used)
+        self.viewModel = DIContainer.shared.makeBudgetViewModel()
+        super.init(coder: coder)
+    }
 
     // MARK: - Lifecycle
 
@@ -189,7 +203,15 @@ final class BudgetViewController: UIViewController {
         let prevYear = Int16(prevComponents.year ?? 2025)
 
         let predicate = NSPredicate(format: "month == %d AND year == %d AND isActive == YES", prevMonth, prevYear)
-        let previousBudgets: [Budget] = coreDataManager.fetch(Budget.self, predicate: predicate)
+        let result = coreDataManager.fetch(Budget.self, predicate: predicate)
+
+        let previousBudgets: [Budget]
+        switch result {
+        case .success(let budgets):
+            previousBudgets = budgets
+        case .failure:
+            previousBudgets = []
+        }
 
         previousMonthButton.isEnabled = !previousBudgets.isEmpty
         previousMonthButton.alpha = previousBudgets.isEmpty ? 0.3 : 1.0
@@ -229,7 +251,16 @@ final class BudgetViewController: UIViewController {
 
     private func fetchBudgets() {
         let predicate = NSPredicate(format: "month == %d AND year == %d AND isActive == YES", selectedMonth, selectedYear)
-        budgets = coreDataManager.fetch(Budget.self, predicate: predicate)
+        let result = coreDataManager.fetch(Budget.self, predicate: predicate)
+
+        switch result {
+        case .success(let fetchedBudgets):
+            budgets = fetchedBudgets
+        case .failure(let error):
+            budgets = []
+            ErrorPresenter.show(error, in: self)
+        }
+
         tableView.reloadData()
         updateEmptyState()
         updateNavigationButtons()
@@ -256,8 +287,14 @@ final class BudgetViewController: UIViewController {
             category, "expense", startOfMonth as NSDate, endOfMonth as NSDate
         )
 
-        let transactions: [Transaction] = coreDataManager.fetch(Transaction.self, predicate: predicate)
-        return transactions.reduce(0) { $0 + $1.amount }
+        let result = coreDataManager.fetch(Transaction.self, predicate: predicate)
+
+        switch result {
+        case .success(let transactions):
+            return transactions.reduce(0) { $0 + $1.amount }
+        case .failure:
+            return 0
+        }
     }
 
     // MARK: - Actions
@@ -367,9 +404,16 @@ extension BudgetViewController: UITableViewDelegate {
         let deleteAction = UIContextualAction(style: .destructive, title: "Видалити") { [weak self] _, _, completion in
             guard let self = self else { return }
             let budget = self.budgets[indexPath.row]
-            self.coreDataManager.delete(budget)
-            self.fetchBudgets()
-            completion(true)
+
+            let result = self.coreDataManager.delete(budget)
+            switch result {
+            case .success:
+                self.fetchBudgets()
+                completion(true)
+            case .failure(let error):
+                ErrorPresenter.show(error, in: self)
+                completion(false)
+            }
         }
 
         return UISwipeActionsConfiguration(actions: [deleteAction])

@@ -223,8 +223,13 @@ final class AddTransactionViewController: UIViewController {
     }
 
     private func loadCategories() {
-        let allCategories: [Category] = coreDataManager.fetch(Category.self)
-        categories = allCategories.filter { $0.type == selectedType }
+        switch coreDataManager.fetch(Category.self) {
+        case .success(let allCategories):
+            categories = allCategories.filter { $0.type == selectedType }
+        case .failure(let error):
+            categories = []
+            print("Failed to load categories: \(error.localizedDescription)")
+        }
     }
 
     private func updateCategoryMenu() {
@@ -280,11 +285,13 @@ final class AddTransactionViewController: UIViewController {
         transaction.transactionDescription = descriptionTextView.text.isEmpty ? nil : descriptionTextView.text
         transaction.category = category
 
-        coreDataManager.saveContext()
-
-        NotificationCenter.default.post(name: .transactionDidAdd, object: nil)
-
-        dismiss(animated: true)
+        switch coreDataManager.saveContext() {
+        case .success:
+            NotificationCenter.default.post(name: .transactionDidAdd, object: nil)
+            dismiss(animated: true)
+        case .failure(let error):
+            showAlert(title: "Помилка", message: "Не вдалося зберегти транзакцію: \(error.localizedDescription)")
+        }
     }
 
     @objc private func cancelButtonTapped() {

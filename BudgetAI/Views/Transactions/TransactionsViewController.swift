@@ -13,6 +13,7 @@ final class TransactionsViewController: UIViewController {
 
     // MARK: - Properties
 
+    private let viewModel: TransactionsViewModel
     private let coreDataManager = CoreDataManager.shared
     private var transactions: [Transaction] = []
     private var fetchedResultsController: NSFetchedResultsController<Transaction>!
@@ -49,6 +50,19 @@ final class TransactionsViewController: UIViewController {
         label.isHidden = true
         return label
     }()
+
+    // MARK: - Initialization
+
+    init(viewModel: TransactionsViewModel) {
+        self.viewModel = viewModel
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    required init?(coder: NSCoder) {
+        // For Storyboard compatibility (not used)
+        self.viewModel = DIContainer.shared.makeTransactionsViewModel()
+        super.init(coder: coder)
+    }
 
     // MARK: - Lifecycle
 
@@ -120,7 +134,13 @@ final class TransactionsViewController: UIViewController {
     }
 
     private func loadCategories() {
-        allCategories = coreDataManager.fetch(Category.self)
+        switch coreDataManager.fetch(Category.self) {
+        case .success(let categories):
+            allCategories = categories
+        case .failure(let error):
+            print("Failed to load categories: \(error)")
+            allCategories = []
+        }
         updateFilterMenu()
     }
 
@@ -277,9 +297,16 @@ extension TransactionsViewController: UITableViewDelegate {
         let deleteAction = UIContextualAction(style: .destructive, title: "Видалити") { [weak self] _, _, completion in
             guard let self = self else { return }
             let transaction = self.transactions[indexPath.row]
-            self.coreDataManager.delete(transaction)
-            NotificationCenter.default.post(name: .transactionDidDelete, object: nil)
-            completion(true)
+
+            let result = self.coreDataManager.delete(transaction)
+            switch result {
+            case .success:
+                NotificationCenter.default.post(name: .transactionDidDelete, object: nil)
+                completion(true)
+            case .failure(let error):
+                ErrorPresenter.show(error, in: self)
+                completion(false)
+            }
         }
 
         return UISwipeActionsConfiguration(actions: [deleteAction])

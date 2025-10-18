@@ -6,12 +6,44 @@
 //
 
 import CoreData
+import os.log
+
+// MARK: - CoreData Errors
+
+enum CoreDataError: Error, LocalizedError {
+    case failedToLoad(Error)
+    case failedToSave(Error)
+    case fetchFailed(Error)
+    case deleteFailed(Error)
+    case notInitialized
+
+    var errorDescription: String? {
+        switch self {
+        case .failedToLoad(let error):
+            return "Не вдалося завантажити базу даних: \(error.localizedDescription)"
+        case .failedToSave(let error):
+            return "Не вдалося зберегти дані: \(error.localizedDescription)"
+        case .fetchFailed(let error):
+            return "Не вдалося отримати дані: \(error.localizedDescription)"
+        case .deleteFailed(let error):
+            return "Не вдалося видалити дані: \(error.localizedDescription)"
+        case .notInitialized:
+            return "База даних не ініціалізована"
+        }
+    }
+}
+
+// MARK: - CoreDataManager
 
 final class CoreDataManager {
 
     static let shared = CoreDataManager()
 
     let persistentContainer: NSPersistentContainer
+    private(set) var isInitialized: Bool = false
+    private(set) var initializationError: CoreDataError?
+
+    private let logger = Logger(subsystem: "com.budgetai.app", category: "CoreData")
 
     var context: NSManagedObjectContext {
         persistentContainer.viewContext
@@ -24,14 +56,45 @@ final class CoreDataManager {
             persistentContainer.persistentStoreDescriptions.first?.url = URL(fileURLWithPath: "/dev/null")
         }
 
-        persistentContainer.loadPersistentStores { description, error in
+        // Enable automatic migrations
+        let description = persistentContainer.persistentStoreDescriptions.first
+        description?.shouldMigrateStoreAutomatically = true
+        description?.shouldInferMappingModelAutomatically = true
+
+        persistentContainer.loadPersistentStores { [weak self] description, error in
+            guard let self = self else { return }
+
             if let error = error {
-                fatalError("Failed to load Core Data stack: \(error)")
+                self.initializationError = .failedToLoad(error)
+                self.isInitialized = false
+                self.logger.error("❌ CoreData failed to load: \(error.localizedDescription)")
+
+                // Try to setup in-memory store as fallback
+                self.setupInMemoryStoreFallback()
+            } else {
+                self.isInitialized = true
+                self.logger.info("✅ CoreData initialized successfully")
             }
         }
 
         persistentContainer.viewContext.automaticallyMergesChangesFromParent = true
         persistentContainer.viewContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
+    }
+
+    private func setupInMemoryStoreFallback() {
+        logger.warning("⚠️ Setting up in-memory store as fallback")
+
+        let inMemoryContainer = NSPersistentContainer(name: "BudgetAI")
+        inMemoryContainer.persistentStoreDescriptions.first?.url = URL(fileURLWithPath: "/dev/null")
+
+        inMemoryContainer.loadPersistentStores { [weak self] _, error in
+            if error == nil {
+                self?.isInitialized = true
+                self?.logger.info("✅ In-memory store initialized")
+            } else {
+                self?.logger.error("❌ Failed to initialize in-memory store")
+            }
+        }
     }
 
     static func preview() -> CoreDataManager {
@@ -92,15 +155,25 @@ final class CoreDataManager {
         return manager
     }
 
-    func saveContext() {
+    func saveContext() -> Result<Void, CoreDataError> {
+        guard isInitialized else {
+            logger.error("❌ Attempt to save while not initialized")
+            return .failure(.notInitialized)
+        }
+
         let context = persistentContainer.viewContext
-        if context.hasChanges {
-            do {
-                try context.save()
-            } catch {
-                let nsError = error as NSError
-                fatalError("Unresolved error \(nsError), \(nsError.userInfo)")
-            }
+        guard context.hasChanges else {
+            return .success(())
+        }
+
+        do {
+            try context.save()
+            logger.debug("✅ Context saved successfully")
+            return .success(())
+        } catch {
+            logger.error("❌ Failed to save context: \(error.localizedDescription)")
+            context.rollback()
+            return .failure(.failedToSave(error))
         }
     }
 
@@ -110,21 +183,31 @@ final class CoreDataManager {
         return T(context: context)
     }
 
-    func fetch<T: NSManagedObject>(_ type: T.Type, predicate: NSPredicate? = nil, sortDescriptors: [NSSortDescriptor]? = nil) -> [T] {
+    func fetch<T: NSManagedObject>(_ type: T.Type, predicate: NSPredicate? = nil, sortDescriptors: [NSSortDescriptor]? = nil) -> Result<[T], CoreDataError> {
+        guard isInitialized else {
+            return .failure(.notInitialized)
+        }
+
         let request = T.fetchRequest()
         request.predicate = predicate
         request.sortDescriptors = sortDescriptors
 
         do {
-            return try context.fetch(request) as? [T] ?? []
+            let results = try context.fetch(request) as? [T] ?? []
+            logger.debug("✅ Fetched \(results.count) objects of type \(String(describing: type))")
+            return .success(results)
         } catch {
-            print("Failed to fetch \(type): \(error)")
-            return []
+            logger.error("❌ Failed to fetch \(String(describing: type)): \(error.localizedDescription)")
+            return .failure(.fetchFailed(error))
         }
     }
 
-    func delete(_ object: NSManagedObject) {
+    func delete(_ object: NSManagedObject) -> Result<Void, CoreDataError> {
+        guard isInitialized else {
+            return .failure(.notInitialized)
+        }
+
         context.delete(object)
-        saveContext()
+        return saveContext()
     }
 }

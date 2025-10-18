@@ -71,8 +71,17 @@ final class CategorySelectionViewController: UIViewController {
 
     private func fetchCategories() {
         let predicate = NSPredicate(format: "type == %@", transactionType)
-        categories = coreDataManager.fetch(Category.self, predicate: predicate)
-        collectionView.reloadData()
+        let result = coreDataManager.fetch(Category.self, predicate: predicate)
+        
+        switch result {
+        case .success(let fetchedCategories):
+            categories = fetchedCategories
+            collectionView.reloadData()
+        case .failure(let error):
+            print("Failed to fetch categories: \(error)")
+            categories = []
+            collectionView.reloadData()
+        }
     }
 }
 
