@@ -282,9 +282,12 @@ final class BudgetViewController: UIViewController {
             return 0
         }
 
+        // Use category type to determine which transactions to fetch
+        let transactionType = category.type ?? "expense"
+
         let predicate = NSPredicate(
             format: "category == %@ AND type == %@ AND date >= %@ AND date <= %@",
-            category, "expense", startOfMonth as NSDate, endOfMonth as NSDate
+            category, transactionType, startOfMonth as NSDate, endOfMonth as NSDate
         )
 
         let result = coreDataManager.fetch(Transaction.self, predicate: predicate)
