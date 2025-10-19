@@ -33,6 +33,10 @@ final class BudgetDetailViewController: UIViewController {
         let currentYear = Int16(components.year ?? 2025)
         return month == currentMonth && year == currentYear
     }
+    
+    private var categoryType: String {
+        return category?.type ?? "expense"
+    }
 
     // MARK: - UI Components
 
@@ -88,10 +92,13 @@ final class BudgetDetailViewController: UIViewController {
         return label
     }()
 
+    // MARK: - Expense Budget Card
+
     private lazy var budgetCardView: UIView = {
         let view = UIView()
         view.backgroundColor = .tertiarySystemBackground
         view.layer.cornerRadius = 12
+        view.isHidden = true // Hidden by default
         return view
     }()
 
@@ -140,7 +147,7 @@ final class BudgetDetailViewController: UIViewController {
         return label
     }()
 
-    private lazy var progressView: UIProgressView = {
+    private lazy var expenseProgressView: UIProgressView = {
         let progressView = UIProgressView(progressViewStyle: .default)
         progressView.layer.cornerRadius = 4
         progressView.clipsToBounds = true
@@ -148,14 +155,71 @@ final class BudgetDetailViewController: UIViewController {
         return progressView
     }()
 
-    private lazy var progressLabel: UILabel = {
+    private lazy var expenseProgressLabel: UILabel = {
         let label = UILabel()
         label.font = .systemFont(ofSize: 14, weight: .medium)
         label.textAlignment = .center
         return label
     }()
+    
+    // MARK: - Income Goal Card
+    
+    private lazy var incomeGoalCardView: UIView = {
+        let view = UIView()
+        view.backgroundColor = .tertiarySystemBackground
+        view.layer.cornerRadius = 12
+        view.isHidden = true // Hidden by default
+        return view
+    }()
 
-    // Statistics Section
+    private lazy var incomeGoalTitleLabel: UILabel = {
+        let label = UILabel()
+        label.font = .systemFont(ofSize: 16, weight: .semibold)
+        label.text = "Ціль доходу"
+        return label
+    }()
+    
+    private lazy var incomeGoalValueLabel: UILabel = {
+        let label = UILabel()
+        label.font = .systemFont(ofSize: 20, weight: .bold)
+        label.textAlignment = .right
+        return label
+    }()
+    
+    private lazy var achievedTitleLabel: UILabel = {
+        let label = UILabel()
+        label.font = .systemFont(ofSize: 16, weight: .semibold)
+        label.text = "Досягнуто"
+        return label
+    }()
+    
+    private lazy var achievedValueLabel: UILabel = {
+        let label = UILabel()
+        label.font = .systemFont(ofSize: 20, weight: .bold)
+        label.textColor = .systemGreen
+        label.textAlignment = .right
+        return label
+    }()
+    
+    private lazy var incomeProgressView: UIProgressView = {
+        let progressView = UIProgressView(progressViewStyle: .default)
+        progressView.layer.cornerRadius = 4
+        progressView.clipsToBounds = true
+        progressView.trackTintColor = .systemGray5
+        progressView.progressTintColor = .systemGreen
+        return progressView
+    }()
+    
+    private lazy var incomeProgressLabel: UILabel = {
+        let label = UILabel()
+        label.font = .systemFont(ofSize: 14, weight: .medium)
+        label.textAlignment = .center
+        label.textColor = .secondaryLabel
+        return label
+    }()
+
+    // MARK: - Common Sections
+    
     private lazy var statsLabel: UILabel = {
         let label = UILabel()
         label.text = "📊 Статистика"
@@ -192,7 +256,6 @@ final class BudgetDetailViewController: UIViewController {
         return stackView
     }()
 
-    // Transactions Section
     private lazy var transactionsLabel: UILabel = {
         let label = UILabel()
         label.text = "📝 Транзакції"
@@ -242,7 +305,6 @@ final class BudgetDetailViewController: UIViewController {
         self.startDate = startDate
         self.endDate = endDate
 
-        // Extract month and year from startDate for display
         let calendar = Calendar.current
         let components = calendar.dateComponents([.month, .year], from: startDate)
         self.month = Int16(components.month ?? 1)
@@ -260,7 +322,7 @@ final class BudgetDetailViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         setupUI()
-        configureHeader()
+        configureView()
         fetchTransactions()
         updateStatistics()
         setupNotifications()
@@ -284,16 +346,28 @@ final class BudgetDetailViewController: UIViewController {
         headerView.addSubview(categoryNameLabel)
         headerView.addSubview(periodLabel)
         headerView.addSubview(archiveBadge)
+        
+        // Add both cards to the header
         headerView.addSubview(budgetCardView)
+        headerView.addSubview(incomeGoalCardView)
 
+        // Setup Expense Card
         budgetCardView.addSubview(budgetAmountLabel)
         budgetCardView.addSubview(budgetValueLabel)
         budgetCardView.addSubview(spentAmountLabel)
         budgetCardView.addSubview(spentValueLabel)
         budgetCardView.addSubview(remainingAmountLabel)
         budgetCardView.addSubview(remainingValueLabel)
-        budgetCardView.addSubview(progressView)
-        budgetCardView.addSubview(progressLabel)
+        budgetCardView.addSubview(expenseProgressView)
+        budgetCardView.addSubview(expenseProgressLabel)
+        
+        // Setup Income Card
+        incomeGoalCardView.addSubview(incomeGoalTitleLabel)
+        incomeGoalCardView.addSubview(incomeGoalValueLabel)
+        incomeGoalCardView.addSubview(achievedTitleLabel)
+        incomeGoalCardView.addSubview(achievedValueLabel)
+        incomeGoalCardView.addSubview(incomeProgressView)
+        incomeGoalCardView.addSubview(incomeProgressLabel)
 
         contentView.addSubview(statsLabel)
         contentView.addSubview(statsContainerView)
@@ -343,80 +417,99 @@ final class BudgetDetailViewController: UIViewController {
             make.centerX.equalToSuperview()
         }
 
-        budgetCardView.snp.makeConstraints { make in
-            make.top.equalTo(archiveBadge.snp.bottom).offset(16)
-            make.leading.trailing.equalToSuperview().inset(16)
-            make.bottom.equalToSuperview().offset(-20)
+        // Constraints for both cards (they will occupy the same space)
+        [budgetCardView, incomeGoalCardView].forEach { card in
+            card.snp.makeConstraints { make in
+                make.top.equalTo(archiveBadge.snp.bottom).offset(16)
+                make.leading.trailing.equalToSuperview().inset(16)
+                make.bottom.equalToSuperview().offset(-20)
+            }
         }
-
+        
+        // Expense Card Constraints
         budgetAmountLabel.snp.makeConstraints { make in
-            make.top.equalToSuperview().offset(16)
-            make.leading.equalToSuperview().offset(16)
+            make.top.leading.equalToSuperview().inset(16)
         }
-
         budgetValueLabel.snp.makeConstraints { make in
             make.centerY.equalTo(budgetAmountLabel)
             make.trailing.equalToSuperview().offset(-16)
         }
-
         spentAmountLabel.snp.makeConstraints { make in
             make.top.equalTo(budgetAmountLabel.snp.bottom).offset(12)
             make.leading.equalToSuperview().offset(16)
         }
-
         spentValueLabel.snp.makeConstraints { make in
             make.centerY.equalTo(spentAmountLabel)
             make.trailing.equalToSuperview().offset(-16)
         }
-
         remainingAmountLabel.snp.makeConstraints { make in
             make.top.equalTo(spentAmountLabel.snp.bottom).offset(12)
             make.leading.equalToSuperview().offset(16)
         }
-
         remainingValueLabel.snp.makeConstraints { make in
             make.centerY.equalTo(remainingAmountLabel)
             make.trailing.equalToSuperview().offset(-16)
         }
-
-        progressView.snp.makeConstraints { make in
+        expenseProgressView.snp.makeConstraints { make in
             make.top.equalTo(remainingAmountLabel.snp.bottom).offset(16)
             make.leading.trailing.equalToSuperview().inset(16)
             make.height.equalTo(8)
         }
-
-        progressLabel.snp.makeConstraints { make in
-            make.top.equalTo(progressView.snp.bottom).offset(8)
+        expenseProgressLabel.snp.makeConstraints { make in
+            make.top.equalTo(expenseProgressView.snp.bottom).offset(8)
+            make.centerX.equalToSuperview()
+            make.bottom.equalToSuperview().offset(-16)
+        }
+        
+        // Income Card Constraints
+        incomeGoalTitleLabel.snp.makeConstraints { make in
+            make.top.leading.equalToSuperview().inset(16)
+        }
+        incomeGoalValueLabel.snp.makeConstraints { make in
+            make.centerY.equalTo(incomeGoalTitleLabel)
+            make.trailing.equalToSuperview().inset(16)
+        }
+        achievedTitleLabel.snp.makeConstraints { make in
+            make.top.equalTo(incomeGoalTitleLabel.snp.bottom).offset(12)
+            make.leading.equalToSuperview().inset(16)
+        }
+        achievedValueLabel.snp.makeConstraints { make in
+            make.centerY.equalTo(achievedTitleLabel)
+            make.trailing.equalToSuperview().inset(16)
+        }
+        incomeProgressView.snp.makeConstraints { make in
+            make.top.equalTo(achievedTitleLabel.snp.bottom).offset(16)
+            make.leading.trailing.equalToSuperview().inset(16)
+            make.height.equalTo(8)
+        }
+        incomeProgressLabel.snp.makeConstraints { make in
+            make.top.equalTo(incomeProgressView.snp.bottom).offset(8)
             make.centerX.equalToSuperview()
             make.bottom.equalToSuperview().offset(-16)
         }
 
+        // Common Section Constraints
         statsLabel.snp.makeConstraints { make in
             make.top.equalTo(headerView.snp.bottom).offset(24)
             make.leading.trailing.equalToSuperview().inset(16)
         }
-
         statsContainerView.snp.makeConstraints { make in
             make.top.equalTo(statsLabel.snp.bottom).offset(12)
             make.leading.trailing.equalToSuperview().inset(16)
             make.height.equalTo(220)
         }
-
         statsStackView.snp.makeConstraints { make in
             make.edges.equalToSuperview()
         }
-
         transactionsLabel.snp.makeConstraints { make in
             make.top.equalTo(statsContainerView.snp.bottom).offset(24)
             make.leading.trailing.equalToSuperview().inset(16)
         }
-
         tableView.snp.makeConstraints { make in
             make.top.equalTo(transactionsLabel.snp.bottom).offset(12)
             make.leading.trailing.equalToSuperview()
             make.height.equalTo(0)
         }
-
         emptyStateLabel.snp.makeConstraints { make in
             make.top.equalTo(transactionsLabel.snp.bottom).offset(40)
             make.leading.trailing.equalToSuperview().inset(40)
@@ -431,7 +524,6 @@ final class BudgetDetailViewController: UIViewController {
             name: .transactionDidAdd,
             object: nil
         )
-
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(handleTransactionChanged),
@@ -439,27 +531,39 @@ final class BudgetDetailViewController: UIViewController {
             object: nil
         )
     }
+    
+    // MARK: - Configuration
+    
+    private func configureView() {
+        configureMainHeaderInfo()
+        
+        if categoryType == "income" {
+            configureIncomeHeader()
+            incomeGoalCardView.isHidden = false
+            budgetCardView.isHidden = true
+        } else {
+            configureExpenseHeader()
+            incomeGoalCardView.isHidden = true
+            budgetCardView.isHidden = false
+        }
+    }
 
-    private func configureHeader() {
+    private func configureMainHeaderInfo() {
         iconLabel.text = category?.icon ?? "📦"
         categoryNameLabel.text = category?.name ?? "Категорія"
 
-        // Format period label based on date range
         if let start = startDate, let end = endDate {
             let dateFormatter = DateFormatter()
             dateFormatter.locale = Locale(identifier: "uk_UA")
             dateFormatter.dateFormat = "d MMMM yyyy"
-
             let startString = dateFormatter.string(from: start)
             let endString = dateFormatter.string(from: end)
-
             periodLabel.text = "\(startString) - \(endString)"
         } else {
             let calendar = Calendar.current
             var components = DateComponents()
             components.year = Int(year)
             components.month = Int(month)
-
             if let date = calendar.date(from: components) {
                 let dateFormatter = DateFormatter()
                 dateFormatter.locale = Locale(identifier: "uk_UA")
@@ -467,10 +571,11 @@ final class BudgetDetailViewController: UIViewController {
                 periodLabel.text = dateFormatter.string(from: date).capitalized
             }
         }
-
         archiveBadge.isHidden = isCurrentMonth
+    }
 
-        let spentAmount = getSpentAmount()
+    private func configureExpenseHeader() {
+        let spentAmount = getAmount(forType: "expense")
         let budgetAmount = budget?.amount ?? spentAmount
         let remaining = budgetAmount - spentAmount
         let progress = budgetAmount > 0 ? min(Float(spentAmount / budgetAmount), 1.0) : 0
@@ -488,49 +593,58 @@ final class BudgetDetailViewController: UIViewController {
             remainingValueLabel.textColor = .systemRed
         }
 
-        progressView.progress = progress
-        progressLabel.text = String(format: "%.0f%%", progress * 100)
+        expenseProgressView.progress = progress
+        expenseProgressLabel.text = String(format: "%.0f%%", progress * 100)
 
         if progress >= 1.0 {
-            progressView.progressTintColor = .systemRed
+            expenseProgressView.progressTintColor = .systemRed
             spentValueLabel.textColor = .systemRed
-            progressLabel.textColor = .systemRed
+            expenseProgressLabel.textColor = .systemRed
         } else if progress >= 0.8 {
-            progressView.progressTintColor = .systemOrange
+            expenseProgressView.progressTintColor = .systemOrange
             spentValueLabel.textColor = .systemOrange
-            progressLabel.textColor = .systemOrange
+            expenseProgressLabel.textColor = .systemOrange
         } else {
-            progressView.progressTintColor = .systemGreen
+            expenseProgressView.progressTintColor = .systemGreen
             spentValueLabel.textColor = .systemGreen
-            progressLabel.textColor = .systemGreen
+            expenseProgressLabel.textColor = .systemGreen
         }
     }
+    
+    private func configureIncomeHeader() {
+        let achievedAmount = getAmount(forType: "income")
+        let goalAmount = budget?.amount ?? achievedAmount
+        let progress = goalAmount > 0 ? min(Float(achievedAmount / goalAmount), 1.0) : 0
+        
+        incomeGoalValueLabel.text = String(format: "%.2f ₴", goalAmount)
+        achievedValueLabel.text = String(format: "%.2f ₴", achievedAmount)
+        
+        incomeProgressView.progress = progress
+        incomeProgressLabel.text = String(format: "Досягнуто %.0f%% від цілі", progress * 100)
+    }
 
-    private func getSpentAmount() -> Double {
+    private func getAmount(forType type: String) -> Double {
         guard let category = category else { return 0 }
 
         let predicate: NSPredicate
 
-        // Use custom date range if available, otherwise use month/year
         if let start = startDate, let end = endDate {
             predicate = NSPredicate(
                 format: "category == %@ AND type == %@ AND date >= %@ AND date <= %@",
-                category, "expense", start as NSDate, end as NSDate
+                category, type, start as NSDate, end as NSDate
             )
         } else {
             let calendar = Calendar.current
             var components = DateComponents()
             components.year = Int(year)
             components.month = Int(month)
-
             guard let startOfMonth = calendar.date(from: components),
                   let endOfMonth = calendar.date(byAdding: DateComponents(month: 1, day: -1), to: startOfMonth) else {
                 return 0
             }
-
             predicate = NSPredicate(
                 format: "category == %@ AND type == %@ AND date >= %@ AND date <= %@",
-                category, "expense", startOfMonth as NSDate, endOfMonth as NSDate
+                category, type, startOfMonth as NSDate, endOfMonth as NSDate
             )
         }
 
@@ -549,11 +663,10 @@ final class BudgetDetailViewController: UIViewController {
 
         let predicate: NSPredicate
 
-        // Use custom date range if available, otherwise use month/year
         if let start = startDate, let end = endDate {
             predicate = NSPredicate(
                 format: "category == %@ AND type == %@ AND date >= %@ AND date <= %@",
-                category, "expense", start as NSDate, end as NSDate
+                category, categoryType, start as NSDate, end as NSDate
             )
         } else {
             let calendar = Calendar.current
@@ -568,7 +681,7 @@ final class BudgetDetailViewController: UIViewController {
 
             predicate = NSPredicate(
                 format: "category == %@ AND type == %@ AND date >= %@ AND date <= %@",
-                category, "expense", startOfMonth as NSDate, endOfMonth as NSDate
+                category, categoryType, startOfMonth as NSDate, endOfMonth as NSDate
             )
         }
 
@@ -602,113 +715,67 @@ final class BudgetDetailViewController: UIViewController {
         emptyStateLabel.isHidden = hasTransactions
         tableView.reloadData()
 
-        // Remove old bottom constraint if exists
         tableViewBottomConstraint?.deactivate()
         tableViewBottomConstraint = nil
 
         if hasTransactions {
-            // Calculate height manually with all margins and paddings
-            let cellHeight: CGFloat = 70 // Base cell height
-            let sectionHeaderHeight: CGFloat = 35 // Section header with padding
-            let sectionFooterSpacing: CGFloat = 10 // Space between sections
-
+            let cellHeight: CGFloat = 70
+            let sectionHeaderHeight: CGFloat = 35
+            let sectionFooterSpacing: CGFloat = 10
             var totalHeight: CGFloat = 0
-
-            // Calculate total height by iterating through sections
             for section in 0..<groupedTransactions.count {
-                // Add section header
                 totalHeight += sectionHeaderHeight
-
-                // Add cell heights
                 let numberOfRows = groupedTransactions[section].transactions.count
                 totalHeight += cellHeight * CGFloat(numberOfRows)
-
-                // Add spacing after section (except last one)
                 if section < groupedTransactions.count - 1 {
                     totalHeight += sectionFooterSpacing
                 }
             }
-
-            // Add extra padding for safety (accounts for any additional table view margins)
             let safetyPadding: CGFloat = 50
             totalHeight += safetyPadding
-
-            print("📏 Calculated table height: \(totalHeight), sections: \(groupedTransactions.count), total transactions: \(transactions.count)")
 
             tableView.snp.updateConstraints { make in
                 make.height.equalTo(totalHeight)
             }
-
-            // Add bottom constraint to define contentView height
             tableView.snp.makeConstraints { make in
                 tableViewBottomConstraint = make.bottom.equalTo(contentView).offset(-16).constraint
             }
         } else {
-            // When empty, height is 0 and emptyStateLabel defines the bottom
             tableView.snp.updateConstraints { make in
                 make.height.equalTo(0)
             }
         }
 
-        // Update the view hierarchy
         UIView.animate(withDuration: 0.3) {
             self.view.layoutIfNeeded()
         }
     }
 
     private func updateStatistics() {
-        // Clear old cards
         firstRowStackView.arrangedSubviews.forEach { $0.removeFromSuperview() }
         secondRowStackView.arrangedSubviews.forEach { $0.removeFromSuperview() }
 
         let count = transactions.count
         let averageAmount = count > 0 ? transactions.reduce(0) { $0 + $1.amount } / Double(count) : 0
-
-        // Find max and min transactions
         maxTransaction = transactions.max(by: { $0.amount < $1.amount })
         minTransaction = transactions.min(by: { $0.amount < $1.amount })
-
         let maxAmount = maxTransaction?.amount ?? 0
         let minAmount = minTransaction?.amount ?? 0
 
-        // Format dates for max and min
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "dd.MM"
         let maxDate = maxTransaction != nil ? dateFormatter.string(from: maxTransaction!.date ?? Date()) : ""
         let minDate = minTransaction != nil ? dateFormatter.string(from: minTransaction!.date ?? Date()) : ""
+        
+        let avgCardTitle = categoryType == "income" ? "Середній дохід" : "Середній чек"
 
-        // First row: Кількість, Середній чек
-        let countCard = createStatCard(
-            title: "Кількість",
-            value: "\(count)",
-            subtitle: nil,
-            tag: 0
-        )
+        let countCard = createStatCard(title: "Кількість", value: "\(count)", subtitle: nil, tag: 0)
         firstRowStackView.addArrangedSubview(countCard)
-
-        let avgCard = createStatCard(
-            title: "Середній чек",
-            value: String(format: "%.0f ₴", averageAmount),
-            subtitle: nil,
-            tag: 1
-        )
+        let avgCard = createStatCard(title: avgCardTitle, value: String(format: "%.0f ₴", averageAmount), subtitle: nil, tag: 1)
         firstRowStackView.addArrangedSubview(avgCard)
-
-        // Second row: Макс, Мін
-        let maxCard = createStatCard(
-            title: "Макс",
-            value: String(format: "%.0f ₴", maxAmount),
-            subtitle: maxDate.isEmpty ? nil : maxDate,
-            tag: 2
-        )
+        let maxCard = createStatCard(title: "Макс", value: String(format: "%.0f ₴", maxAmount), subtitle: maxDate.isEmpty ? nil : maxDate, tag: 2)
         secondRowStackView.addArrangedSubview(maxCard)
-
-        let minCard = createStatCard(
-            title: "Мін",
-            value: String(format: "%.0f ₴", minAmount),
-            subtitle: minDate.isEmpty ? nil : minDate,
-            tag: 3
-        )
+        let minCard = createStatCard(title: "Мін", value: String(format: "%.0f ₴", minAmount), subtitle: minDate.isEmpty ? nil : minDate, tag: 3)
         secondRowStackView.addArrangedSubview(minCard)
     }
 
@@ -776,7 +843,7 @@ final class BudgetDetailViewController: UIViewController {
     @objc private func handleTransactionChanged() {
         if isCurrentMonth {
             fetchTransactions()
-            configureHeader()
+            configureView()
             updateStatistics()
         }
     }
@@ -863,11 +930,9 @@ final class TransactionDetailCell: UITableViewCell {
     static let reuseIdentifier = "TransactionDetailCell"
 
     // MARK: - UI Components
-
     private lazy var timeLabel: UILabel = {
         let label = UILabel()
         label.font = .systemFont(ofSize: 14, weight: .semibold)
-        label.textColor = .label
         return label
     }()
 
@@ -918,7 +983,6 @@ final class TransactionDetailCell: UITableViewCell {
     private func setupUI() {
         backgroundColor = .clear
         selectionStyle = .none
-
         contentView.addSubview(containerView)
         containerView.addSubview(timeLabel)
         containerView.addSubview(descriptionLabel)
@@ -929,25 +993,21 @@ final class TransactionDetailCell: UITableViewCell {
             make.top.bottom.equalToSuperview().inset(4)
             make.leading.trailing.equalToSuperview().inset(16)
         }
-
         timeLabel.snp.makeConstraints { make in
             make.top.equalToSuperview().offset(12)
             make.leading.equalToSuperview().offset(12)
         }
-
         descriptionLabel.snp.makeConstraints { make in
             make.top.equalTo(timeLabel.snp.bottom).offset(4)
             make.leading.equalToSuperview().offset(12)
             make.trailing.equalTo(amountLabel.snp.leading).offset(-12)
             make.bottom.equalToSuperview().offset(-12)
         }
-
         amountLabel.snp.makeConstraints { make in
             make.centerY.equalToSuperview()
             make.trailing.equalToSuperview().offset(-12)
             make.width.greaterThanOrEqualTo(80)
         }
-
         photoIndicator.snp.makeConstraints { make in
             make.trailing.equalTo(amountLabel.snp.leading).offset(-8)
             make.centerY.equalToSuperview()
@@ -961,13 +1021,17 @@ final class TransactionDetailCell: UITableViewCell {
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "HH:mm"
         timeLabel.text = dateFormatter.string(from: transaction.date ?? Date())
-
         descriptionLabel.text = transaction.transactionDescription ?? "Без опису"
 
         let amount = transaction.amount
-        amountLabel.text = String(format: "-%.2f ₴", amount)
-        amountLabel.textColor = .systemRed
-
+        if transaction.type == "income" {
+            amountLabel.text = String(format: "+%.2f ₴", amount)
+            amountLabel.textColor = .systemGreen
+        } else {
+            amountLabel.text = String(format: "-%.2f ₴", amount)
+            amountLabel.textColor = .systemRed
+        }
+        
         photoIndicator.isHidden = transaction.photoData == nil
     }
 }

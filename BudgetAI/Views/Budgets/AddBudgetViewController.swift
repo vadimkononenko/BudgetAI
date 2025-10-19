@@ -17,8 +17,9 @@ final class AddBudgetViewController: UIViewController {
     // MARK: - Properties
 
     private let coreDataManager = CoreDataManager.shared
-    private var expenseCategories: [Category] = []
+    private var allCategories: [Category] = []
     private var selectedCategory: Category?
+    private var selectedType: String = "expense"
     private var currentMonth: Int16 = 0
     private var currentYear: Int16 = 0
     weak var delegate: AddBudgetDelegate?
@@ -31,6 +32,14 @@ final class AddBudgetViewController: UIViewController {
         label.font = .systemFont(ofSize: 24, weight: .bold)
         label.textAlignment = .center
         return label
+    }()
+
+    private lazy var typeSegmentedControl: UISegmentedControl = {
+        let items = ["Бюджет", "Ціль"]
+        let control = UISegmentedControl(items: items)
+        control.selectedSegmentIndex = 0
+        control.addTarget(self, action: #selector(typeChanged), for: .valueChanged)
+        return control
     }()
 
     private lazy var amountTextField: UITextField = {
@@ -59,8 +68,7 @@ final class AddBudgetViewController: UIViewController {
         button.setTitleColor(.label, for: .normal)
         button.layer.cornerRadius = 8
         button.contentHorizontalAlignment = .left
-        button.titleEdgeInsets = UIEdgeInsets(top: 0, left: 12, bottom: 0, right: 0)
-        button.addTarget(self, action: #selector(categoryButtonTapped), for: .touchUpInside)
+        button.titleEdgeInsets = UIEdgeInsets(top: 0, left: 40, bottom: 0, right: 0)
         return button
     }()
 
@@ -80,7 +88,7 @@ final class AddBudgetViewController: UIViewController {
 
     private lazy var saveButton: UIButton = {
         let button = UIButton(type: .system)
-        button.setTitle("Зберегти", for: .normal)
+        button.setTitle("Зберегти бюджет", for: .normal)
         button.titleLabel?.font = .systemFont(ofSize: 18, weight: .semibold)
         button.backgroundColor = .systemBlue
         button.setTitleColor(.white, for: .normal)
@@ -104,7 +112,7 @@ final class AddBudgetViewController: UIViewController {
         setupUI()
         setupCurrentMonthYear()
         fetchCategories()
-        setupCategoryMenu()
+        updateCategoryMenu()
     }
 
     // MARK: - Setup
@@ -113,6 +121,7 @@ final class AddBudgetViewController: UIViewController {
         view.backgroundColor = .systemBackground
 
         view.addSubview(titleLabel)
+        view.addSubview(typeSegmentedControl)
         view.addSubview(amountTextField)
         view.addSubview(categoryLabel)
         view.addSubview(categoryButton)
@@ -126,8 +135,13 @@ final class AddBudgetViewController: UIViewController {
             make.leading.trailing.equalToSuperview().inset(20)
         }
 
+        typeSegmentedControl.snp.makeConstraints { make in
+            make.top.equalTo(titleLabel.snp.bottom).offset(24)
+            make.leading.trailing.equalToSuperview().inset(20)
+        }
+
         amountTextField.snp.makeConstraints { make in
-            make.top.equalTo(titleLabel.snp.bottom).offset(32)
+            make.top.equalTo(typeSegmentedControl.snp.bottom).offset(24)
             make.leading.trailing.equalToSuperview().inset(20)
             make.height.equalTo(48)
         }
@@ -175,23 +189,25 @@ final class AddBudgetViewController: UIViewController {
     }
 
     private func fetchCategories() {
-        let predicate = NSPredicate(format: "type == %@", "expense")
-        let result = coreDataManager.fetch(Category.self, predicate: predicate)
+        let result = coreDataManager.fetch(Category.self)
         
         switch result {
         case .success(let categories):
-            expenseCategories = categories
+            allCategories = categories
         case .failure(let error):
             print("Failed to fetch categories: \(error)")
-            expenseCategories = []
+            allCategories = []
         }
     }
 
-    private func setupCategoryMenu() {
+    private func updateCategoryMenu() {
+        let filteredCategories = allCategories.filter { $0.type == selectedType }
+        
         var menuActions: [UIAction] = []
 
-        for category in expenseCategories {
-            let action = UIAction(title: category.name ?? "", image: nil) { [weak self] _ in
+        for category in filteredCategories {
+            let title = "\(category.icon ?? "") \(category.name ?? "")"
+            let action = UIAction(title: title, image: nil) { [weak self] _ in
                 self?.didSelectCategory(category)
             }
             menuActions.append(action)
@@ -208,17 +224,34 @@ final class AddBudgetViewController: UIViewController {
         selectedCategoryIconLabel.text = category.icon
     }
 
+    private func updateUIForSelectedType() {
+        if selectedType == "expense" {
+            titleLabel.text = "Новий бюджет"
+            saveButton.setTitle("Зберегти бюджет", for: .normal)
+        } else {
+            titleLabel.text = "Нова ціль доходу"
+            saveButton.setTitle("Зберегти ціль", for: .normal)
+        }
+        
+        selectedCategory = nil
+        categoryButton.setTitle("Виберіть категорію", for: .normal)
+        selectedCategoryIconLabel.text = nil
+        
+        updateCategoryMenu()
+    }
+
     // MARK: - Actions
 
-    @objc private func categoryButtonTapped() {
-        
+    @objc private func typeChanged() {
+        selectedType = typeSegmentedControl.selectedSegmentIndex == 0 ? "expense" : "income"
+        updateUIForSelectedType()
     }
 
     @objc private func saveButtonTapped() {
-        guard let amountText = amountTextField.text,
-              let amount = Double(amountText),
-              amount > 0 else {
-            showAlert(title: "Помилка", message: "Будь ласка, введіть суму")
+        let amountText = amountTextField.text?.replacingOccurrences(of: ",", with: ".") ?? ""
+        guard let amount = Double(amountText), amount > 0 else {
+            let message = selectedType == "expense" ? "Будь ласка, введіть суму бюджету" : "Будь ласка, введіть суму цілі"
+            showAlert(title: "Помилка", message: message)
             return
         }
 
@@ -241,7 +274,7 @@ final class AddBudgetViewController: UIViewController {
             delegate?.didAddBudget()
             dismiss(animated: true)
         case .failure(let error):
-            showAlert(title: "Помилка", message: "Не вдалося зберегти бюджет: \(error.localizedDescription)")
+            showAlert(title: "Помилка", message: "Не вдалося зберегти: \(error.localizedDescription)")
         }
     }
 
@@ -259,10 +292,29 @@ final class AddBudgetViewController: UIViewController {
 // MARK: - UITextFieldDelegate
 
 extension AddBudgetViewController: UITextFieldDelegate {
-
     func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
-        let allowedCharacters = CharacterSet(charactersIn: "0123456789.,")
+        if string.isEmpty {
+            return true
+        }
+
+        let currentText = textField.text ?? ""
+        let prospectiveText = (currentText as NSString).replacingCharacters(in: range, with: string)
+        
+        let separator = Locale.current.decimalSeparator ?? "."
+        if string == separator || string == "," {
+            return !currentText.contains(separator) && !currentText.contains(",")
+        }
+        
+        let allowedCharacters = CharacterSet.decimalDigits
         let characterSet = CharacterSet(charactersIn: string)
+        
+        if let separatorRange = prospectiveText.rangeOfCharacter(from: CharacterSet(charactersIn: ",.")) {
+            let decimalPart = prospectiveText[separatorRange.upperBound...]
+            if decimalPart.count > 2 {
+                return false
+            }
+        }
+        
         return allowedCharacters.isSuperset(of: characterSet)
     }
 }

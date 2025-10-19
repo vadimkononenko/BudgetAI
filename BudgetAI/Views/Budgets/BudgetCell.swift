@@ -111,18 +111,24 @@ final class BudgetCell: UITableViewCell {
         let progress = Float(min(spentAmount / budgetAmount, 1.0))
         progressView.progress = progress
 
+        // Determine if this is income or expense
+        let isIncome = budget.category?.type == "income"
+
         if progress >= 1.0 {
-            progressView.progressTintColor = .systemRed
-            budgetLabel.textColor = .systemRed
+            progressView.progressTintColor = isIncome ? .systemGreen : .systemRed
+            budgetLabel.textColor = isIncome ? .systemGreen : .systemRed
         } else if progress >= 0.8 {
-            progressView.progressTintColor = .systemOrange
-            budgetLabel.textColor = .systemOrange
+            progressView.progressTintColor = isIncome ? .systemGreen : .systemOrange
+            budgetLabel.textColor = isIncome ? .systemGreen : .systemOrange
         } else {
-            progressView.progressTintColor = .systemGreen
-            budgetLabel.textColor = .systemGreen
+            progressView.progressTintColor = isIncome ? .systemOrange : .systemGreen
+            budgetLabel.textColor = isIncome ? .systemOrange : .systemGreen
         }
 
-        amountLabel.text = String(format: "Витрачено: %.2f ₴ з %.2f ₴", spentAmount, budgetAmount)
+        // Use appropriate text for income vs expense
+        let actionText = isIncome ? "Отримано" : "Витрачено"
+        amountLabel.text = String(format: "%@: %.2f ₴ з %.2f ₴", actionText, spentAmount, budgetAmount)
+
         let remaining = budgetAmount - spentAmount
         budgetLabel.text = String(format: "%@%.2f ₴", remaining >= 0 ? "" : "+", abs(remaining))
     }
