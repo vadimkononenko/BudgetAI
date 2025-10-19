@@ -589,8 +589,65 @@ final class StatisticsViewController: UIViewController {
     // MARK: - Actions
 
     @objc private func showMoreButtonTapped() {
-        let allCategoryVC = AllCategoryStatsViewController(categoryStats: allCategoryStats, totalExpense: expenses.reduce(0) { $0 + $1.amount })
+        let allCategoryVC = AllCategoryStatsViewController(categoryStats: allCategoryStats, totalExpense: expenses.reduce(0) { $0 + $1.amount }, selectedPeriod: selectedPeriod)
         navigationController?.pushViewController(allCategoryVC, animated: true)
+    }
+
+    private func getDateRange() -> (startDate: Date, endDate: Date) {
+        let calendar = Calendar.current
+
+        switch selectedPeriod {
+        case .currentMonth:
+            let components = calendar.dateComponents([.year, .month], from: Date())
+            if let startOfMonth = calendar.date(from: components),
+               let endOfMonth = calendar.date(byAdding: DateComponents(month: 1, day: -1), to: startOfMonth) {
+                return (startOfMonth, endOfMonth)
+            }
+
+        case .specificMonth(let month, let year):
+            var components = DateComponents()
+            components.year = Int(year)
+            components.month = Int(month)
+
+            if let startOfMonth = calendar.date(from: components),
+               let endOfMonth = calendar.date(byAdding: DateComponents(month: 1, day: -1), to: startOfMonth) {
+                return (startOfMonth, endOfMonth)
+            }
+
+        case .currentYear:
+            let components = calendar.dateComponents([.year], from: Date())
+            if let startOfYear = calendar.date(from: components) {
+                let endOfYear = calendar.date(byAdding: DateComponents(year: 1, day: -1), to: startOfYear) ?? Date()
+                return (startOfYear, endOfYear)
+            }
+
+        case .allTime:
+            // Get the earliest and latest transaction dates
+            let result = coreDataManager.fetch(Transaction.self)
+            let allTransactions: [Transaction]
+
+            switch result {
+            case .success(let transactions):
+                allTransactions = transactions
+            case .failure:
+                allTransactions = []
+            }
+
+            if let earliest = allTransactions.min(by: { $0.date ?? Date() < $1.date ?? Date() })?.date,
+               let latest = allTransactions.max(by: { $0.date ?? Date() < $1.date ?? Date() })?.date {
+                return (earliest, latest)
+            }
+        }
+
+        // Fallback to current month
+        let components = calendar.dateComponents([.year, .month], from: Date())
+        if let startOfMonth = calendar.date(from: components),
+           let endOfMonth = calendar.date(byAdding: DateComponents(month: 1, day: -1), to: startOfMonth) {
+            return (startOfMonth, endOfMonth)
+        }
+
+        // Final fallback
+        return (Date(), Date())
     }
 }
 
@@ -622,5 +679,19 @@ extension StatisticsViewController: UITableViewDelegate {
 
     func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
         return 60
+    }
+
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        tableView.deselectRow(at: indexPath, animated: true)
+
+        let stat = categoryStats[indexPath.row]
+        let dateRange = getDateRange()
+
+        let detailVC = BudgetDetailViewController(
+            category: stat.category,
+            startDate: dateRange.startDate,
+            endDate: dateRange.endDate
+        )
+        navigationController?.pushViewController(detailVC, animated: true)
     }
 }

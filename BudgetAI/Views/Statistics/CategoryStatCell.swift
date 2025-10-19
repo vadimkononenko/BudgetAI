@@ -58,7 +58,7 @@ final class CategoryStatCell: UITableViewCell {
 
     private func setupUI() {
         backgroundColor = .clear
-        selectionStyle = .none
+        selectionStyle = .default
 
         contentView.addSubview(iconLabel)
         contentView.addSubview(categoryNameLabel)

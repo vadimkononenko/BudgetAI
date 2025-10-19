@@ -12,14 +12,19 @@ final class BudgetDetailViewController: UIViewController {
 
     // MARK: - Properties
 
-    private let budget: Budget
+    private let budget: Budget?
+    private let category: Category?
     private let month: Int16
     private let year: Int16
+    private let startDate: Date?
+    private let endDate: Date?
     private let coreDataManager = CoreDataManager.shared
 
     private var transactions: [Transaction] = []
     private var groupedTransactions: [(date: Date, transactions: [Transaction])] = []
     private var tableViewBottomConstraint: Constraint?
+    private var maxTransaction: Transaction?
+    private var minTransaction: Transaction?
 
     private var isCurrentMonth: Bool {
         let calendar = Calendar.current
@@ -165,6 +170,22 @@ final class BudgetDetailViewController: UIViewController {
 
     private lazy var statsStackView: UIStackView = {
         let stackView = UIStackView()
+        stackView.axis = .vertical
+        stackView.distribution = .fillEqually
+        stackView.spacing = 12
+        return stackView
+    }()
+
+    private lazy var firstRowStackView: UIStackView = {
+        let stackView = UIStackView()
+        stackView.axis = .horizontal
+        stackView.distribution = .fillEqually
+        stackView.spacing = 12
+        return stackView
+    }()
+
+    private lazy var secondRowStackView: UIStackView = {
+        let stackView = UIStackView()
         stackView.axis = .horizontal
         stackView.distribution = .fillEqually
         stackView.spacing = 12
@@ -203,10 +224,30 @@ final class BudgetDetailViewController: UIViewController {
 
     // MARK: - Initialization
 
+    /// Initialize with budget (from Budgets screen)
     init(budget: Budget, month: Int16, year: Int16) {
         self.budget = budget
+        self.category = budget.category
         self.month = month
         self.year = year
+        self.startDate = nil
+        self.endDate = nil
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    /// Initialize with category and custom date range (from Statistics screen)
+    init(category: Category, startDate: Date, endDate: Date) {
+        self.budget = nil
+        self.category = category
+        self.startDate = startDate
+        self.endDate = endDate
+
+        // Extract month and year from startDate for display
+        let calendar = Calendar.current
+        let components = calendar.dateComponents([.month, .year], from: startDate)
+        self.month = Int16(components.month ?? 1)
+        self.year = Int16(components.year ?? 2025)
+
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -257,6 +298,8 @@ final class BudgetDetailViewController: UIViewController {
         contentView.addSubview(statsLabel)
         contentView.addSubview(statsContainerView)
         statsContainerView.addSubview(statsStackView)
+        statsStackView.addArrangedSubview(firstRowStackView)
+        statsStackView.addArrangedSubview(secondRowStackView)
 
         contentView.addSubview(transactionsLabel)
         contentView.addSubview(tableView)
@@ -356,7 +399,7 @@ final class BudgetDetailViewController: UIViewController {
         statsContainerView.snp.makeConstraints { make in
             make.top.equalTo(statsLabel.snp.bottom).offset(12)
             make.leading.trailing.equalToSuperview().inset(16)
-            make.height.equalTo(100)
+            make.height.equalTo(220)
         }
 
         statsStackView.snp.makeConstraints { make in
@@ -398,27 +441,39 @@ final class BudgetDetailViewController: UIViewController {
     }
 
     private func configureHeader() {
-        iconLabel.text = budget.category?.icon ?? "📦"
-        categoryNameLabel.text = budget.category?.name ?? "Категорія"
+        iconLabel.text = category?.icon ?? "📦"
+        categoryNameLabel.text = category?.name ?? "Категорія"
 
-        let calendar = Calendar.current
-        var components = DateComponents()
-        components.year = Int(year)
-        components.month = Int(month)
-
-        if let date = calendar.date(from: components) {
+        // Format period label based on date range
+        if let start = startDate, let end = endDate {
             let dateFormatter = DateFormatter()
             dateFormatter.locale = Locale(identifier: "uk_UA")
-            dateFormatter.dateFormat = "LLLL yyyy"
-            periodLabel.text = dateFormatter.string(from: date).capitalized
+            dateFormatter.dateFormat = "d MMMM yyyy"
+
+            let startString = dateFormatter.string(from: start)
+            let endString = dateFormatter.string(from: end)
+
+            periodLabel.text = "\(startString) - \(endString)"
+        } else {
+            let calendar = Calendar.current
+            var components = DateComponents()
+            components.year = Int(year)
+            components.month = Int(month)
+
+            if let date = calendar.date(from: components) {
+                let dateFormatter = DateFormatter()
+                dateFormatter.locale = Locale(identifier: "uk_UA")
+                dateFormatter.dateFormat = "LLLL yyyy"
+                periodLabel.text = dateFormatter.string(from: date).capitalized
+            }
         }
 
         archiveBadge.isHidden = isCurrentMonth
 
         let spentAmount = getSpentAmount()
-        let budgetAmount = budget.amount
+        let budgetAmount = budget?.amount ?? spentAmount
         let remaining = budgetAmount - spentAmount
-        let progress = min(Float(spentAmount / budgetAmount), 1.0)
+        let progress = budgetAmount > 0 ? min(Float(spentAmount / budgetAmount), 1.0) : 0
 
         budgetValueLabel.text = String(format: "%.2f ₴", budgetAmount)
         spentValueLabel.text = String(format: "%.2f ₴", spentAmount)
@@ -452,21 +507,32 @@ final class BudgetDetailViewController: UIViewController {
     }
 
     private func getSpentAmount() -> Double {
-        let calendar = Calendar.current
-        var components = DateComponents()
-        components.year = Int(year)
-        components.month = Int(month)
+        guard let category = category else { return 0 }
 
-        guard let startOfMonth = calendar.date(from: components),
-              let endOfMonth = calendar.date(byAdding: DateComponents(month: 1, day: -1), to: startOfMonth),
-              let category = budget.category else {
-            return 0
+        let predicate: NSPredicate
+
+        // Use custom date range if available, otherwise use month/year
+        if let start = startDate, let end = endDate {
+            predicate = NSPredicate(
+                format: "category == %@ AND type == %@ AND date >= %@ AND date <= %@",
+                category, "expense", start as NSDate, end as NSDate
+            )
+        } else {
+            let calendar = Calendar.current
+            var components = DateComponents()
+            components.year = Int(year)
+            components.month = Int(month)
+
+            guard let startOfMonth = calendar.date(from: components),
+                  let endOfMonth = calendar.date(byAdding: DateComponents(month: 1, day: -1), to: startOfMonth) else {
+                return 0
+            }
+
+            predicate = NSPredicate(
+                format: "category == %@ AND type == %@ AND date >= %@ AND date <= %@",
+                category, "expense", startOfMonth as NSDate, endOfMonth as NSDate
+            )
         }
-
-        let predicate = NSPredicate(
-            format: "category == %@ AND type == %@ AND date >= %@ AND date <= %@",
-            category, "expense", startOfMonth as NSDate, endOfMonth as NSDate
-        )
 
         let result = coreDataManager.fetch(Transaction.self, predicate: predicate)
 
@@ -479,21 +545,32 @@ final class BudgetDetailViewController: UIViewController {
     }
 
     private func fetchTransactions() {
-        let calendar = Calendar.current
-        var components = DateComponents()
-        components.year = Int(year)
-        components.month = Int(month)
+        guard let category = category else { return }
 
-        guard let startOfMonth = calendar.date(from: components),
-              let endOfMonth = calendar.date(byAdding: DateComponents(month: 1, day: -1), to: startOfMonth),
-              let category = budget.category else {
-            return
+        let predicate: NSPredicate
+
+        // Use custom date range if available, otherwise use month/year
+        if let start = startDate, let end = endDate {
+            predicate = NSPredicate(
+                format: "category == %@ AND type == %@ AND date >= %@ AND date <= %@",
+                category, "expense", start as NSDate, end as NSDate
+            )
+        } else {
+            let calendar = Calendar.current
+            var components = DateComponents()
+            components.year = Int(year)
+            components.month = Int(month)
+
+            guard let startOfMonth = calendar.date(from: components),
+                  let endOfMonth = calendar.date(byAdding: DateComponents(month: 1, day: -1), to: startOfMonth) else {
+                return
+            }
+
+            predicate = NSPredicate(
+                format: "category == %@ AND type == %@ AND date >= %@ AND date <= %@",
+                category, "expense", startOfMonth as NSDate, endOfMonth as NSDate
+            )
         }
-
-        let predicate = NSPredicate(
-            format: "category == %@ AND type == %@ AND date >= %@ AND date <= %@",
-            category, "expense", startOfMonth as NSDate, endOfMonth as NSDate
-        )
 
         let sortDescriptor = NSSortDescriptor(key: "date", ascending: false)
         let result = coreDataManager.fetch(Transaction.self, predicate: predicate, sortDescriptors: [sortDescriptor])
@@ -580,30 +657,66 @@ final class BudgetDetailViewController: UIViewController {
     }
 
     private func updateStatistics() {
-        statsStackView.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        // Clear old cards
+        firstRowStackView.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        secondRowStackView.arrangedSubviews.forEach { $0.removeFromSuperview() }
 
         let count = transactions.count
         let averageAmount = count > 0 ? transactions.reduce(0) { $0 + $1.amount } / Double(count) : 0
-        let maxAmount = transactions.map { $0.amount }.max() ?? 0
-        let minAmount = transactions.map { $0.amount }.min() ?? 0
 
-        let statCards = [
-            ("Кількість", "\(count)"),
-            ("Середній чек", String(format: "%.0f ₴", averageAmount)),
-            ("Макс", String(format: "%.0f ₴", maxAmount)),
-            ("Мін", String(format: "%.0f ₴", minAmount))
-        ]
+        // Find max and min transactions
+        maxTransaction = transactions.max(by: { $0.amount < $1.amount })
+        minTransaction = transactions.min(by: { $0.amount < $1.amount })
 
-        for (title, value) in statCards {
-            let card = createStatCard(title: title, value: value)
-            statsStackView.addArrangedSubview(card)
-        }
+        let maxAmount = maxTransaction?.amount ?? 0
+        let minAmount = minTransaction?.amount ?? 0
+
+        // Format dates for max and min
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "dd.MM"
+        let maxDate = maxTransaction != nil ? dateFormatter.string(from: maxTransaction!.date ?? Date()) : ""
+        let minDate = minTransaction != nil ? dateFormatter.string(from: minTransaction!.date ?? Date()) : ""
+
+        // First row: Кількість, Середній чек
+        let countCard = createStatCard(
+            title: "Кількість",
+            value: "\(count)",
+            subtitle: nil,
+            tag: 0
+        )
+        firstRowStackView.addArrangedSubview(countCard)
+
+        let avgCard = createStatCard(
+            title: "Середній чек",
+            value: String(format: "%.0f ₴", averageAmount),
+            subtitle: nil,
+            tag: 1
+        )
+        firstRowStackView.addArrangedSubview(avgCard)
+
+        // Second row: Макс, Мін
+        let maxCard = createStatCard(
+            title: "Макс",
+            value: String(format: "%.0f ₴", maxAmount),
+            subtitle: maxDate.isEmpty ? nil : maxDate,
+            tag: 2
+        )
+        secondRowStackView.addArrangedSubview(maxCard)
+
+        let minCard = createStatCard(
+            title: "Мін",
+            value: String(format: "%.0f ₴", minAmount),
+            subtitle: minDate.isEmpty ? nil : minDate,
+            tag: 3
+        )
+        secondRowStackView.addArrangedSubview(minCard)
     }
 
-    private func createStatCard(title: String, value: String) -> UIView {
+    private func createStatCard(title: String, value: String, subtitle: String?, tag: Int) -> UIView {
         let container = UIView()
         container.backgroundColor = .secondarySystemBackground
         container.layer.cornerRadius = 12
+        container.tag = tag
 
         let titleLabel = UILabel()
         titleLabel.text = title
@@ -628,10 +741,31 @@ final class BudgetDetailViewController: UIViewController {
             make.leading.trailing.equalToSuperview().inset(8)
         }
 
-        valueLabel.snp.makeConstraints { make in
-            make.top.equalTo(titleLabel.snp.bottom).offset(8)
-            make.leading.trailing.equalToSuperview().inset(8)
-            make.bottom.equalToSuperview().offset(-12)
+        if let subtitle = subtitle {
+            let subtitleLabel = UILabel()
+            subtitleLabel.text = subtitle
+            subtitleLabel.font = .systemFont(ofSize: 11, weight: .regular)
+            subtitleLabel.textColor = .tertiaryLabel
+            subtitleLabel.textAlignment = .center
+
+            container.addSubview(subtitleLabel)
+
+            valueLabel.snp.makeConstraints { make in
+                make.top.equalTo(titleLabel.snp.bottom).offset(8)
+                make.leading.trailing.equalToSuperview().inset(8)
+            }
+
+            subtitleLabel.snp.makeConstraints { make in
+                make.top.equalTo(valueLabel.snp.bottom).offset(4)
+                make.leading.trailing.equalToSuperview().inset(8)
+                make.bottom.equalToSuperview().offset(-12)
+            }
+        } else {
+            valueLabel.snp.makeConstraints { make in
+                make.top.equalTo(titleLabel.snp.bottom).offset(8)
+                make.leading.trailing.equalToSuperview().inset(8)
+                make.bottom.equalToSuperview().offset(-12)
+            }
         }
 
         return container
