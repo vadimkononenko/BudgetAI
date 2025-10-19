@@ -80,14 +80,15 @@ final class TransactionsViewController: UIViewController {
     private func setupNavigationBar() {
         title = "Транзакції"
         navigationController?.navigationBar.prefersLargeTitles = true
-        
+        navigationController?.navigationBar.tintColor = .black
+
         let addButtonItem = UIBarButtonItem(
             barButtonSystemItem: .add,
             target: self,
             action: #selector(addButtonTapped)
         )
         navigationItem.rightBarButtonItem = addButtonItem
-        
+
         let filterButtonItem = UIBarButtonItem(
             image: UIImage(systemName: "line.3.horizontal.decrease.circle"),
             style: .plain,
@@ -187,7 +188,7 @@ final class TransactionsViewController: UIViewController {
 
     private func updateFilterBarButtonItem() {
         guard let filterItem = navigationItem.leftBarButtonItem else { return }
-        
+
         if let category = selectedCategory {
             filterItem.title = category.name
             filterItem.image = nil
@@ -195,7 +196,7 @@ final class TransactionsViewController: UIViewController {
         } else {
             filterItem.title = nil
             filterItem.image = UIImage(systemName: "line.3.horizontal.decrease.circle")
-            filterItem.tintColor = .systemBlue
+            filterItem.tintColor = .black
         }
         updateFilterMenu()
     }

@@ -80,6 +80,12 @@ final class BudgetCell: UITableViewCell {
         categoryNameLabel.snp.makeConstraints { make in
             make.leading.equalTo(iconLabel.snp.trailing).offset(12)
             make.top.equalToSuperview().offset(16)
+            make.trailing.lessThanOrEqualTo(budgetLabel.snp.leading).offset(-12)
+        }
+
+        budgetLabel.snp.makeConstraints { make in
+            make.trailing.equalToSuperview().offset(-16)
+            make.top.equalToSuperview().offset(16)
         }
 
         progressView.snp.makeConstraints { make in
@@ -92,11 +98,6 @@ final class BudgetCell: UITableViewCell {
         amountLabel.snp.makeConstraints { make in
             make.leading.equalTo(categoryNameLabel)
             make.top.equalTo(progressView.snp.bottom).offset(8)
-        }
-
-        budgetLabel.snp.makeConstraints { make in
-            make.trailing.equalToSuperview().offset(-16)
-            make.centerY.equalToSuperview()
         }
     }
 
