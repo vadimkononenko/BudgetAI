@@ -43,24 +43,21 @@ final class StatisticsViewController: UIViewController {
 
     private lazy var periodFilterButton: UIButton = {
         let button = UIButton(type: .system)
-        var configuration = UIButton.Configuration.filled()
-        
+        var configuration = UIButton.Configuration.plain()
+
         configuration.title = "Поточний місяць"
-        configuration.baseBackgroundColor = .secondarySystemBackground
         configuration.baseForegroundColor = .label
-        
-        configuration.image = UIImage(systemName: "chevron.down", withConfiguration: UIImage.SymbolConfiguration(weight: .light))
-        configuration.imagePlacement = .trailing
-        configuration.imagePadding = 8.0
-        
+
+        configuration.image = UIImage(systemName: "calendar", withConfiguration: UIImage.SymbolConfiguration(weight: .medium))
+        configuration.imagePlacement = .leading
+        configuration.imagePadding = 6.0
+
         configuration.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
             var outgoing = incoming
-            outgoing.font = .systemFont(ofSize: 16, weight: .semibold)
+            outgoing.font = .systemFont(ofSize: 15, weight: .medium)
             return outgoing
         }
-        
-        configuration.cornerStyle = .large
-        
+
         button.configuration = configuration
         button.showsMenuAsPrimaryAction = true
         return button
@@ -235,10 +232,12 @@ final class StatisticsViewController: UIViewController {
         view.backgroundColor = .systemBackground
         navigationController?.navigationBar.prefersLargeTitles = true
 
+        // Add period filter button to navigation bar
+        navigationItem.titleView = periodFilterButton
+
         view.addSubview(scrollView)
         scrollView.addSubview(contentView)
 
-        contentView.addSubview(periodFilterButton)
         contentView.addSubview(incomeCardView)
         contentView.addSubview(expenseCardView)
         contentView.addSubview(balanceCardView)
@@ -270,14 +269,8 @@ final class StatisticsViewController: UIViewController {
             make.width.equalTo(scrollView)
         }
 
-        periodFilterButton.snp.makeConstraints { make in
-            make.top.equalToSuperview().offset(16)
-            make.leading.trailing.equalToSuperview().inset(16)
-            make.height.equalTo(44)
-        }
-
         incomeCardView.snp.makeConstraints { make in
-            make.top.equalTo(periodFilterButton.snp.bottom).offset(20)
+            make.top.equalToSuperview().offset(16)
             make.leading.trailing.equalToSuperview().inset(16)
             make.height.equalTo(70)
         }
