@@ -20,6 +20,12 @@ final class TransactionsViewModel {
         case income
     }
 
+    struct FilterMenuItem {
+        let title: String
+        let category: Category?
+        let isSelected: Bool
+    }
+
     var transactions: [TransactionDisplayModel] = []
     var selectedFilter: FilterType = .all
     var selectedCategory: Category?
@@ -132,5 +138,63 @@ final class TransactionsViewModel {
         case .income:
             return allCategories.filter { $0.type == "income" }
         }
+    }
+
+    func isEmpty() -> Bool {
+        return transactions.isEmpty
+    }
+
+    func getTransaction(at index: Int) -> Transaction? {
+        guard index < transactions.count else { return nil }
+
+        let displayModel = transactions[index]
+        let result = transactionRepository.fetchAllTransactions()
+
+        switch result {
+        case .success(let fetchedTransactions):
+            return fetchedTransactions.first(where: { $0.id == displayModel.id })
+        case .failure:
+            return nil
+        }
+    }
+
+    func getSegmentIndex() -> Int {
+        switch selectedFilter {
+        case .all: return 0
+        case .expenses: return 1
+        case .income: return 2
+        }
+    }
+
+    func isCategorySelected(_ category: Category) -> Bool {
+        return selectedCategory?.id == category.id
+    }
+
+    func hasSelectedCategory() -> Bool {
+        return selectedCategory != nil
+    }
+
+    func getFilterMenuItems() -> [FilterMenuItem] {
+        var items: [FilterMenuItem] = []
+
+        // Add "All categories" option
+        items.append(FilterMenuItem(
+            title: "Всі категорії",
+            category: nil,
+            isSelected: selectedCategory == nil
+        ))
+
+        // Add filtered categories
+        let filteredCategories = getFilteredCategories()
+        for category in filteredCategories {
+            let title = "\(category.icon ?? "") \(category.name ?? "")"
+            items.append(FilterMenuItem(
+                title: title,
+                category: category,
+                isSelected: isCategorySelected(category)
+            ))
+        }
+
+        return items
     }
 }

@@ -132,4 +132,15 @@ final class TransactionCell: UITableViewCell {
         amountLabel.text = String(format: "%@%.2f ₴", isIncome ? "+" : "-", amount)
         amountLabel.textColor = isIncome ? .systemGreen : .systemRed
     }
+
+    func configure(with displayModel: TransactionDisplayModel) {
+        iconLabel.text = displayModel.categoryIcon.isEmpty ? "📦" : displayModel.categoryIcon
+        categoryNameLabel.text = displayModel.categoryName.isEmpty ? "Без категорії" : displayModel.categoryName
+        descriptionLabel.text = displayModel.description ?? "Опис відсутній"
+        dateLabel.text = displayModel.date
+
+        let isIncome = displayModel.type == "income"
+        amountLabel.text = "\(isIncome ? "+" : "-")\(displayModel.amount)"
+        amountLabel.textColor = displayModel.typeColor
+    }
 }

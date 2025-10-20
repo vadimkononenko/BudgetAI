@@ -7,18 +7,12 @@
 
 import UIKit
 import SnapKit
-import CoreData
 
 final class TransactionsViewController: UIViewController {
 
     // MARK: - Properties
 
     private let viewModel: TransactionsViewModel
-    private let coreDataManager = CoreDataManager.shared
-    private var transactions: [Transaction] = []
-    private var fetchedResultsController: NSFetchedResultsController<Transaction>!
-    private var selectedCategory: Category?
-    private var allCategories: [Category] = []
 
     // MARK: - UI Components
 
@@ -70,9 +64,23 @@ final class TransactionsViewController: UIViewController {
         super.viewDidLoad()
         setupNavigationBar()
         setupUI()
-        loadCategories()
-        setupFetchedResultsController()
-        fetchTransactions()
+        setupBindings()
+        viewModel.loadCategories()
+        updateFilterMenu()
+        viewModel.fetchTransactions()
+    }
+
+    // MARK: - Bindings
+
+    private func setupBindings() {
+        viewModel.onTransactionsUpdated = { [weak self] in
+            self?.updateUI()
+        }
+
+        viewModel.onError = { [weak self] error in
+            guard let self = self else { return }
+            ErrorPresenter.show(error, in: self)
+        }
     }
 
     // MARK: - Setup
@@ -121,75 +129,29 @@ final class TransactionsViewController: UIViewController {
         }
     }
 
-    private func setupFetchedResultsController() {
-        let fetchRequest: NSFetchRequest<Transaction> = Transaction.fetchRequest()
-        fetchRequest.sortDescriptors = [NSSortDescriptor(key: "date", ascending: false)]
-
-        fetchedResultsController = NSFetchedResultsController(
-            fetchRequest: fetchRequest,
-            managedObjectContext: coreDataManager.context,
-            sectionNameKeyPath: nil,
-            cacheName: nil
-        )
-        fetchedResultsController.delegate = self
-    }
-
-    private func loadCategories() {
-        switch coreDataManager.fetch(Category.self) {
-        case .success(let categories):
-            allCategories = categories
-        case .failure(let error):
-            print("Failed to load categories: \(error)")
-            allCategories = []
-        }
-        updateFilterMenu()
-    }
 
     private func updateFilterMenu() {
-        var menuActions: [UIAction] = []
-        
-        let filteredCategories: [Category]
-        let selectedSegment = segmentedControl.selectedSegmentIndex
-        
-        if selectedSegment == 1 {
-            filteredCategories = allCategories.filter { $0.type == "expense" }
-        } else if selectedSegment == 2 {
-            filteredCategories = allCategories.filter { $0.type == "income" }
-        } else {
-            filteredCategories = allCategories
+        let menuItems = viewModel.getFilterMenuItems()
+        let menuActions = menuItems.map { item in
+            createFilterAction(for: item)
         }
-
-        let allAction = UIAction(
-            title: "Всі категорії",
-            image: selectedCategory == nil ? UIImage(systemName: "checkmark") : nil
-        ) { [weak self] _ in
-            self?.selectedCategory = nil
-            self?.updateFilterBarButtonItem()
-            self?.fetchTransactions()
-        }
-        menuActions.append(allAction)
-
-        for category in filteredCategories {
-            let isSelected = selectedCategory?.id == category.id
-            let title = "\(category.icon ?? "") \(category.name ?? "")"
-            let action = UIAction(
-                title: title,
-                image: isSelected ? UIImage(systemName: "checkmark") : nil
-            ) { [weak self] _ in
-                self?.selectedCategory = category
-                self?.updateFilterBarButtonItem()
-                self?.fetchTransactions()
-            }
-            menuActions.append(action)
-        }
-        
         navigationItem.leftBarButtonItem?.menu = UIMenu(children: menuActions)
+    }
+
+    private func createFilterAction(for item: TransactionsViewModel.FilterMenuItem) -> UIAction {
+        return UIAction(
+            title: item.title,
+            image: item.isSelected ? UIImage(systemName: "checkmark") : nil
+        ) { [weak self] _ in
+            self?.viewModel.setCategory(item.category)
+            self?.updateFilterBarButtonItem()
+        }
     }
 
     private func updateFilterBarButtonItem() {
         guard let filterItem = navigationItem.leftBarButtonItem else { return }
 
-        if let category = selectedCategory {
+        if viewModel.hasSelectedCategory(), let category = viewModel.selectedCategory {
             filterItem.title = category.name
             filterItem.image = nil
             filterItem.tintColor = .systemOrange
@@ -201,40 +163,13 @@ final class TransactionsViewController: UIViewController {
         updateFilterMenu()
     }
 
-    private func fetchTransactions() {
-        let selectedSegment = segmentedControl.selectedSegmentIndex
-        var predicates: [NSPredicate] = []
-
-        if selectedSegment == 1 {
-            predicates.append(NSPredicate(format: "type == %@", "expense"))
-        } else if selectedSegment == 2 {
-            predicates.append(NSPredicate(format: "type == %@", "income"))
-        }
-
-        if let category = selectedCategory {
-            predicates.append(NSPredicate(format: "category == %@", category))
-        }
-
-        if predicates.isEmpty {
-            fetchedResultsController.fetchRequest.predicate = nil
-        } else if predicates.count == 1 {
-            fetchedResultsController.fetchRequest.predicate = predicates.first
-        } else {
-            fetchedResultsController.fetchRequest.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: predicates)
-        }
-
-        do {
-            try fetchedResultsController.performFetch()
-            transactions = fetchedResultsController.fetchedObjects ?? []
-            tableView.reloadData()
-            updateEmptyState()
-        } catch {
-            print("Failed to fetch transactions: \(error)")
-        }
+    private func updateUI() {
+        tableView.reloadData()
+        updateEmptyState()
     }
 
     private func updateEmptyState() {
-        emptyStateLabel.isHidden = !transactions.isEmpty
+        emptyStateLabel.isHidden = !viewModel.isEmpty()
     }
 
     // MARK: - Actions
@@ -246,20 +181,15 @@ final class TransactionsViewController: UIViewController {
     }
 
     @objc private func segmentChanged() {
-        let selectedType: String?
+        let filterType: TransactionsViewModel.FilterType
         switch segmentedControl.selectedSegmentIndex {
-        case 1: selectedType = "expense"
-        case 2: selectedType = "income"
-        default: selectedType = nil
+        case 1: filterType = .expenses
+        case 2: filterType = .income
+        default: filterType = .all
         }
 
-        if let category = selectedCategory, let type = selectedType, category.type != type {
-            selectedCategory = nil
-        }
-
+        viewModel.setFilter(filterType)
         updateFilterBarButtonItem()
-
-        fetchTransactions()
     }
 }
 
@@ -268,7 +198,7 @@ final class TransactionsViewController: UIViewController {
 extension TransactionsViewController: UITableViewDataSource {
 
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return transactions.count
+        return viewModel.transactions.count
     }
 
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
@@ -276,8 +206,8 @@ extension TransactionsViewController: UITableViewDataSource {
             return UITableViewCell()
         }
 
-        let transaction = transactions[indexPath.row]
-        cell.configure(with: transaction)
+        let displayModel = viewModel.transactions[indexPath.row]
+        cell.configure(with: displayModel)
         return cell
     }
 }
@@ -293,7 +223,7 @@ extension TransactionsViewController: UITableViewDelegate {
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
 
-        let transaction = transactions[indexPath.row]
+        guard let transaction = viewModel.getTransaction(at: indexPath.row) else { return }
         let detailVC = TransactionDetailViewController(transaction: transaction)
         navigationController?.pushViewController(detailVC, animated: true)
     }
@@ -301,30 +231,11 @@ extension TransactionsViewController: UITableViewDelegate {
     func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
         let deleteAction = UIContextualAction(style: .destructive, title: "Видалити") { [weak self] _, _, completion in
             guard let self = self else { return }
-            let transaction = self.transactions[indexPath.row]
-
-            let result = self.coreDataManager.delete(transaction)
-            switch result {
-            case .success:
-                NotificationCenter.default.post(name: .transactionDidDelete, object: nil)
-                completion(true)
-            case .failure(let error):
-                ErrorPresenter.show(error, in: self)
-                completion(false)
-            }
+            self.viewModel.deleteTransaction(at: indexPath.row)
+            completion(true)
         }
 
         return UISwipeActionsConfiguration(actions: [deleteAction])
     }
 }
 
-// MARK: - NSFetchedResultsControllerDelegate
-
-extension TransactionsViewController: NSFetchedResultsControllerDelegate {
-
-    func controllerDidChangeContent(_ controller: NSFetchedResultsController<NSFetchRequestResult>) {
-        transactions = fetchedResultsController.fetchedObjects ?? []
-        tableView.reloadData()
-        updateEmptyState()
-    }
-}
