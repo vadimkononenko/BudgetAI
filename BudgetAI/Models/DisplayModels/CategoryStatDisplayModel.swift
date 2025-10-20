@@ -8,6 +8,7 @@
 import UIKit
 
 struct CategoryStatDisplayModel: Hashable {
+    let category: Category
     let categoryName: String
     let categoryIcon: String
     let categoryColor: UIColor
@@ -17,6 +18,7 @@ struct CategoryStatDisplayModel: Hashable {
     let percentageText: String
 
     init(category: Category, amount: Double, totalExpenses: Double) {
+        self.category = category
         self.categoryName = category.name ?? ""
         self.categoryIcon = category.icon ?? ""
         self.categoryColor = UIColor(hex: category.colorHex ?? "#000000") ?? .white

@@ -89,6 +89,14 @@ final class CategoryStatCell: UITableViewCell {
 
     // MARK: - Configuration
 
+    func configure(with displayModel: CategoryStatDisplayModel) {
+        iconLabel.text = displayModel.categoryIcon
+        categoryNameLabel.text = displayModel.categoryName
+        percentageLabel.text = displayModel.percentageText
+        amountLabel.text = displayModel.amount
+    }
+
+    // Legacy method for backwards compatibility
     func configure(with category: Category, amount: Double, percentage: Double) {
         iconLabel.text = category.icon
         categoryNameLabel.text = category.name

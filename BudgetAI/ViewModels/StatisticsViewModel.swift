@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import UIKit
 
 final class StatisticsViewModel {
 
@@ -19,6 +20,12 @@ final class StatisticsViewModel {
         case specificMonth(month: Int16, year: Int16)
         case currentYear
         case allTime
+    }
+
+    struct PeriodMenuItem {
+        let title: String
+        let period: PeriodFilter
+        let isSelected: Bool
     }
 
     var selectedPeriod: PeriodFilter = .currentMonth
@@ -140,6 +147,126 @@ final class StatisticsViewModel {
 
     func hasMoreThan5Categories() -> Bool {
         return allCategoryStats.count > 5
+    }
+
+    func hasData() -> Bool {
+        return totalIncome > 0 || totalExpenses > 0
+    }
+
+    func getBalanceColor() -> UIColor {
+        return balance >= 0 ? .systemGreen : .systemRed
+    }
+
+    func getCategory(at index: Int) -> Category? {
+        guard index < topCategoryStats.count else { return nil }
+        return topCategoryStats[index].category
+    }
+
+    func getDateRange() -> (startDate: Date, endDate: Date) {
+        let calendar = Calendar.current
+
+        switch selectedPeriod {
+        case .currentMonth:
+            let components = calendar.dateComponents([.year, .month], from: Date())
+            if let startOfMonth = calendar.date(from: components),
+               let endOfMonth = calendar.date(byAdding: DateComponents(month: 1, day: -1), to: startOfMonth) {
+                return (startOfMonth, endOfMonth)
+            }
+
+        case .specificMonth(let month, let year):
+            var components = DateComponents()
+            components.year = Int(year)
+            components.month = Int(month)
+
+            if let startOfMonth = calendar.date(from: components),
+               let endOfMonth = calendar.date(byAdding: DateComponents(month: 1, day: -1), to: startOfMonth) {
+                return (startOfMonth, endOfMonth)
+            }
+
+        case .currentYear:
+            let components = calendar.dateComponents([.year], from: Date())
+            if let startOfYear = calendar.date(from: components) {
+                let endOfYear = calendar.date(byAdding: DateComponents(year: 1, day: -1), to: startOfYear) ?? Date()
+                return (startOfYear, endOfYear)
+            }
+
+        case .allTime:
+            // Get the earliest and latest transaction dates
+            let result = transactionRepository.fetchAllTransactions()
+
+            switch result {
+            case .success(let transactions):
+                if let earliest = transactions.min(by: { $0.date ?? Date() < $1.date ?? Date() })?.date,
+                   let latest = transactions.max(by: { $0.date ?? Date() < $1.date ?? Date() })?.date {
+                    return (earliest, latest)
+                }
+            case .failure:
+                break
+            }
+        }
+
+        // Fallback to current month
+        let components = calendar.dateComponents([.year, .month], from: Date())
+        if let startOfMonth = calendar.date(from: components),
+           let endOfMonth = calendar.date(byAdding: DateComponents(month: 1, day: -1), to: startOfMonth) {
+            return (startOfMonth, endOfMonth)
+        }
+
+        // Final fallback
+        return (Date(), Date())
+    }
+
+    func getPeriodMenuItems() -> [PeriodMenuItem] {
+        var menuItems: [PeriodMenuItem] = []
+
+        // Current month
+        menuItems.append(PeriodMenuItem(
+            title: "Поточний місяць",
+            period: .currentMonth,
+            isSelected: selectedPeriod == .currentMonth
+        ))
+
+        // Specific months
+        for monthYear in availableMonths {
+            let calendar = Calendar.current
+            var components = DateComponents()
+            components.year = Int(monthYear.year)
+            components.month = Int(monthYear.month)
+
+            guard let date = calendar.date(from: components) else { continue }
+
+            let dateFormatter = DateFormatter()
+            dateFormatter.locale = Locale(identifier: "uk_UA")
+            dateFormatter.dateFormat = "LLLL yyyy"
+            let title = dateFormatter.string(from: date).capitalized
+
+            var isSelected = false
+            if case .specificMonth(let month, let year) = selectedPeriod {
+                isSelected = (month == monthYear.month && year == monthYear.year)
+            }
+
+            menuItems.append(PeriodMenuItem(
+                title: title,
+                period: .specificMonth(month: monthYear.month, year: monthYear.year),
+                isSelected: isSelected
+            ))
+        }
+
+        // Current year
+        menuItems.append(PeriodMenuItem(
+            title: "Поточний рік",
+            period: .currentYear,
+            isSelected: selectedPeriod == .currentYear
+        ))
+
+        // All time
+        menuItems.append(PeriodMenuItem(
+            title: "За весь час",
+            period: .allTime,
+            isSelected: selectedPeriod == .allTime
+        ))
+
+        return menuItems
     }
 
     // MARK: - Private Methods

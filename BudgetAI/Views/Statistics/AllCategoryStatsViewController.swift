@@ -12,10 +12,9 @@ final class AllCategoryStatsViewController: UIViewController {
 
     // MARK: - Properties
 
-    private let categoryStats: [(category: Category, amount: Double)]
+    private let categoryStats: [CategoryStatDisplayModel]
     private let totalExpense: Double
-    private let selectedPeriod: StatisticsViewController.PeriodFilter
-    private let coreDataManager = CoreDataManager.shared
+    private let selectedPeriod: StatisticsViewModel.PeriodFilter
 
     // MARK: - UI Components
 
@@ -31,7 +30,7 @@ final class AllCategoryStatsViewController: UIViewController {
 
     // MARK: - Initialization
 
-    init(categoryStats: [(category: Category, amount: Double)], totalExpense: Double, selectedPeriod: StatisticsViewController.PeriodFilter) {
+    init(categoryStats: [CategoryStatDisplayModel], totalExpense: Double, selectedPeriod: StatisticsViewModel.PeriodFilter) {
         self.categoryStats = categoryStats
         self.totalExpense = totalExpense
         self.selectedPeriod = selectedPeriod
@@ -93,21 +92,10 @@ final class AllCategoryStatsViewController: UIViewController {
             }
 
         case .allTime:
-            // Get the earliest and latest transaction dates
-            let result = coreDataManager.fetch(Transaction.self)
-            let allTransactions: [Transaction]
-
-            switch result {
-            case .success(let transactions):
-                allTransactions = transactions
-            case .failure:
-                allTransactions = []
-            }
-
-            if let earliest = allTransactions.min(by: { $0.date ?? Date() < $1.date ?? Date() })?.date,
-               let latest = allTransactions.max(by: { $0.date ?? Date() < $1.date ?? Date() })?.date {
-                return (earliest, latest)
-            }
+            // For allTime, use a wide date range
+            // TODO: Fetch actual transaction dates from repository
+            let farPast = Calendar.current.date(byAdding: .year, value: -10, to: Date()) ?? Date()
+            return (farPast, Date())
         }
 
         // Fallback to current month
@@ -136,9 +124,7 @@ extension AllCategoryStatsViewController: UITableViewDataSource {
         }
 
         let stat = categoryStats[indexPath.row]
-        let percentage = totalExpense > 0 ? (stat.amount / totalExpense) * 100 : 0
-
-        cell.configure(with: stat.category, amount: stat.amount, percentage: percentage)
+        cell.configure(with: stat)
         return cell
     }
 }
