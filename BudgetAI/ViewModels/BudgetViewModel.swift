@@ -162,6 +162,34 @@ final class BudgetViewModel {
         return DateFormatter.monthYear.string(from: date).capitalized
     }
 
+    var isEmpty: Bool {
+        return budgets.isEmpty
+    }
+
+    var shouldShowAddButton: Bool {
+        return isCurrentMonth
+    }
+
+    var shouldShowArchiveLabel: Bool {
+        return !isCurrentMonth
+    }
+
+    var emptyStateText: String {
+        return isCurrentMonth ? "Немає бюджетів\nДодайте новий бюджет, натиснувши «+»" : "Немає бюджетів за цей місяць"
+    }
+
+    func getBudget(at index: Int) -> Budget? {
+        guard index < budgets.count else { return nil }
+        let budgetDisplayModel = budgets[index]
+
+        // Fetch the actual Budget object from repository
+        let result = budgetRepository.fetchBudgets(month: selectedMonth, year: selectedYear)
+        if case .success(let fetchedBudgets) = result {
+            return fetchedBudgets.first(where: { $0.id == budgetDisplayModel.id })
+        }
+        return nil
+    }
+
     // MARK: - Private Methods
 
     private func setupCurrentMonthYear() {

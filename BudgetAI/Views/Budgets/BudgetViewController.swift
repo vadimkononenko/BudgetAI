@@ -13,12 +13,6 @@ final class BudgetViewController: UIViewController {
     // MARK: - Properties
 
     private let viewModel: BudgetViewModel
-    private let coreDataManager = CoreDataManager.shared
-    private var budgets: [Budget] = []
-    private var currentMonth: Int16 = 0
-    private var currentYear: Int16 = 0
-    private var selectedMonth: Int16 = 0
-    private var selectedYear: Int16 = 0
 
     // MARK: - UI Components
     
@@ -35,13 +29,7 @@ final class BudgetViewController: UIViewController {
         return tableView
     }()
 
-    private lazy var previousMonthButton: UIButton = {
-        let button = UIButton(type: .system)
-        button.setImage(UIImage(systemName: "chevron.left"), for: .normal)
-        button.tintColor = .label
-        button.addTarget(self, action: #selector(previousMonthTapped), for: .touchUpInside)
-        return button
-    }()
+    private lazy var previousMonthButton = makeNavigationButton(image: "chevron.left", action: #selector(previousMonthTapped))
 
     private lazy var monthYearLabel: UILabel = {
         let label = UILabel()
@@ -50,13 +38,7 @@ final class BudgetViewController: UIViewController {
         return label
     }()
 
-    private lazy var nextMonthButton: UIButton = {
-        let button = UIButton(type: .system)
-        button.setImage(UIImage(systemName: "chevron.right"), for: .normal)
-        button.tintColor = .label
-        button.addTarget(self, action: #selector(nextMonthTapped), for: .touchUpInside)
-        return button
-    }()
+    private lazy var nextMonthButton = makeNavigationButton(image: "chevron.right", action: #selector(nextMonthTapped))
 
     private lazy var archiveLabel: UILabel = {
         let label = UILabel()
@@ -97,14 +79,14 @@ final class BudgetViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         setupUI()
-        setupCurrentMonthYear()
+        setupBindings()
         setupNotifications()
-        fetchBudgets()
+        viewModel.fetchBudgets()
     }
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        fetchBudgets()
+        viewModel.fetchBudgets()
     }
 
     deinit {
@@ -112,6 +94,14 @@ final class BudgetViewController: UIViewController {
     }
 
     // MARK: - Setup
+
+    private func makeNavigationButton(image: String, action: Selector) -> UIButton {
+        let button = UIButton(type: .system)
+        button.setImage(UIImage(systemName: image), for: .normal)
+        button.tintColor = .label
+        button.addTarget(self, action: action, for: .touchUpInside)
+        return button
+    }
 
     private func setupUI() {
         title = "Бюджети"
@@ -159,146 +149,43 @@ final class BudgetViewController: UIViewController {
         }
     }
 
-    private func setupCurrentMonthYear() {
-        let calendar = Calendar.current
-        let components = calendar.dateComponents([.month, .year], from: Date())
-        currentMonth = Int16(components.month ?? 1)
-        currentYear = Int16(components.year ?? 2025)
-        selectedMonth = currentMonth
-        selectedYear = currentYear
-
-        updateMonthYearLabel()
-        updateNavigationButtons()
-        updateUIForCurrentMonth()
-    }
-
-    private func updateMonthYearLabel() {
-        let calendar = Calendar.current
-        var components = DateComponents()
-        components.year = Int(selectedYear)
-        components.month = Int(selectedMonth)
-
-        guard let date = calendar.date(from: components) else { return }
-
-        let dateFormatter = DateFormatter()
-        dateFormatter.locale = Locale(identifier: "uk_UA")
-        dateFormatter.dateFormat = "LLLL yyyy"
-        monthYearLabel.text = dateFormatter.string(from: date).capitalized
-    }
-
-    private func updateNavigationButtons() {
-        let calendar = Calendar.current
-        var components = DateComponents()
-        components.year = Int(selectedYear)
-        components.month = Int(selectedMonth)
-
-        guard let currentDate = calendar.date(from: components),
-              let previousMonthDate = calendar.date(byAdding: .month, value: -1, to: currentDate) else {
-            previousMonthButton.isEnabled = false
-            return
+    private func setupBindings() {
+        viewModel.onBudgetsUpdated = { [weak self] in
+            self?.updateUI()
         }
 
-        let prevComponents = calendar.dateComponents([.month, .year], from: previousMonthDate)
-        let prevMonth = Int16(prevComponents.month ?? 1)
-        let prevYear = Int16(prevComponents.year ?? 2025)
-
-        let predicate = NSPredicate(format: "month == %d AND year == %d AND isActive == YES", prevMonth, prevYear)
-        let result = coreDataManager.fetch(Budget.self, predicate: predicate)
-
-        let previousBudgets: [Budget]
-        switch result {
-        case .success(let budgets):
-            previousBudgets = budgets
-        case .failure:
-            previousBudgets = []
-        }
-
-        previousMonthButton.isEnabled = !previousBudgets.isEmpty
-        previousMonthButton.alpha = previousBudgets.isEmpty ? 0.3 : 1.0
-
-        nextMonthButton.isEnabled = !(selectedMonth == currentMonth && selectedYear == currentYear)
-        nextMonthButton.alpha = nextMonthButton.isEnabled ? 1.0 : 0.3
-    }
-
-    private func updateUIForCurrentMonth() {
-        let isCurrentMonth = (selectedMonth == currentMonth && selectedYear == currentYear)
-
-        navigationItem.rightBarButtonItem = isCurrentMonth ? addBarButtonItem : nil
-        archiveLabel.isHidden = isCurrentMonth
-
-        if !isCurrentMonth {
-            emptyStateLabel.text = "Немає бюджетів за цей місяць"
-        } else {
-            emptyStateLabel.text = "Немає бюджетів\nДодайте новий бюджет, натиснувши «+»"
-        }
-    }
-
-    private func setupNotifications() {
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(handleTransactionChanged),
-            name: .transactionDidAdd,
-            object: nil
-        )
-
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(handleTransactionChanged),
-            name: .transactionDidDelete,
-            object: nil
-        )
-    }
-
-    private func fetchBudgets() {
-        let predicate = NSPredicate(format: "month == %d AND year == %d AND isActive == YES", selectedMonth, selectedYear)
-        let result = coreDataManager.fetch(Budget.self, predicate: predicate)
-
-        switch result {
-        case .success(let fetchedBudgets):
-            budgets = fetchedBudgets
-        case .failure(let error):
-            budgets = []
+        viewModel.onError = { [weak self] error in
+            guard let self = self else { return }
             ErrorPresenter.show(error, in: self)
         }
 
+        updateUI()
+    }
+
+    private func updateUI() {
+        monthYearLabel.text = viewModel.getMonthYearString()
+
+        previousMonthButton.isEnabled = viewModel.canNavigateToPreviousMonth()
+        previousMonthButton.alpha = previousMonthButton.isEnabled ? 1.0 : 0.3
+
+        nextMonthButton.isEnabled = viewModel.canNavigateToNextMonth()
+        nextMonthButton.alpha = nextMonthButton.isEnabled ? 1.0 : 0.3
+
+        navigationItem.rightBarButtonItem = viewModel.shouldShowAddButton ? addBarButtonItem : nil
+        archiveLabel.isHidden = !viewModel.shouldShowArchiveLabel
+
+        emptyStateLabel.text = viewModel.emptyStateText
+        emptyStateLabel.isHidden = !viewModel.isEmpty
+
         tableView.reloadData()
-        updateEmptyState()
-        updateNavigationButtons()
-        updateUIForCurrentMonth()
     }
 
-    private func updateEmptyState() {
-        emptyStateLabel.isHidden = !budgets.isEmpty
-    }
-
-    private func getSpentAmount(for category: Category) -> Double {
-        let calendar = Calendar.current
-        var components = DateComponents()
-        components.year = Int(selectedYear)
-        components.month = Int(selectedMonth)
-
-        guard let startOfMonth = calendar.date(from: components),
-              let endOfMonth = calendar.date(byAdding: DateComponents(month: 1, day: -1), to: startOfMonth) else {
-            return 0
-        }
-
-        // Use category type to determine which transactions to fetch
-        let transactionType = category.type ?? "expense"
-
-        let predicate = NSPredicate(
-            format: "category == %@ AND type == %@ AND date >= %@ AND date <= %@",
-            category, transactionType, startOfMonth as NSDate, endOfMonth as NSDate
-        )
-
-        let result = coreDataManager.fetch(Transaction.self, predicate: predicate)
-
-        switch result {
-        case .success(let transactions):
-            return transactions.reduce(0) { $0 + $1.amount }
-        case .failure:
-            return 0
+    private func setupNotifications() {
+        [Notification.Name.transactionDidAdd, .transactionDidDelete].forEach { notification in
+            NotificationCenter.default.addObserver(self, selector: #selector(handleTransactionChanged), name: notification, object: nil)
         }
     }
+
 
     // MARK: - Actions
 
@@ -316,55 +203,17 @@ final class BudgetViewController: UIViewController {
 
     @objc private func handleTransactionChanged() {
         // Opening only if current month is on users view
-        if selectedMonth == currentMonth && selectedYear == currentYear {
-            fetchBudgets()
+        if viewModel.isCurrentMonth {
+            viewModel.fetchBudgets()
         }
     }
 
     @objc private func previousMonthTapped() {
-        let calendar = Calendar.current
-        var components = DateComponents()
-        components.year = Int(selectedYear)
-        components.month = Int(selectedMonth)
-
-        guard let currentDate = calendar.date(from: components),
-              let previousMonthDate = calendar.date(byAdding: .month, value: -1, to: currentDate) else {
-            return
-        }
-
-        let prevComponents = calendar.dateComponents([.month, .year], from: previousMonthDate)
-        selectedMonth = Int16(prevComponents.month ?? 1)
-        selectedYear = Int16(prevComponents.year ?? 2025)
-
-        updateMonthYearLabel()
-        fetchBudgets()
+        viewModel.navigateToPreviousMonth()
     }
 
     @objc private func nextMonthTapped() {
-        let calendar = Calendar.current
-        var components = DateComponents()
-        components.year = Int(selectedYear)
-        components.month = Int(selectedMonth)
-
-        guard let currentDate = calendar.date(from: components),
-              let nextMonthDate = calendar.date(byAdding: .month, value: 1, to: currentDate) else {
-            return
-        }
-
-        let nextComponents = calendar.dateComponents([.month, .year], from: nextMonthDate)
-        let nextMonth = Int16(nextComponents.month ?? 1)
-        let nextYear = Int16(nextComponents.year ?? 2025)
-
-        // Constraint moving next after current month
-        if nextYear > currentYear || (nextYear == currentYear && nextMonth > currentMonth) {
-            return
-        }
-
-        selectedMonth = nextMonth
-        selectedYear = nextYear
-
-        updateMonthYearLabel()
-        fetchBudgets()
+        viewModel.navigateToNextMonth()
     }
 }
 
@@ -373,7 +222,7 @@ final class BudgetViewController: UIViewController {
 extension BudgetViewController: UITableViewDataSource {
 
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return budgets.count
+        return viewModel.budgets.count
     }
 
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
@@ -381,11 +230,8 @@ extension BudgetViewController: UITableViewDataSource {
             return UITableViewCell()
         }
 
-        let budget = budgets[indexPath.row]
-        if let category = budget.category {
-            let spentAmount = getSpentAmount(for: category)
-            cell.configure(with: budget, spentAmount: spentAmount)
-        }
+        let budgetDisplayModel = viewModel.budgets[indexPath.row]
+        cell.configure(with: budgetDisplayModel)
         return cell
     }
 }
@@ -401,29 +247,21 @@ extension BudgetViewController: UITableViewDelegate {
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
 
-        let budget = budgets[indexPath.row]
-        let detailVC = BudgetDetailViewController(budget: budget, month: selectedMonth, year: selectedYear)
-        navigationController?.pushViewController(detailVC, animated: true)
+        if let budget = viewModel.getBudget(at: indexPath.row) {
+            let detailVC = BudgetDetailViewController(budget: budget, month: viewModel.selectedMonth, year: viewModel.selectedYear)
+            navigationController?.pushViewController(detailVC, animated: true)
+        }
     }
 
     func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
-        guard selectedMonth == currentMonth && selectedYear == currentYear else {
+        guard viewModel.isCurrentMonth else {
             return nil
         }
 
         let deleteAction = UIContextualAction(style: .destructive, title: "Видалити") { [weak self] _, _, completion in
             guard let self = self else { return }
-            let budget = self.budgets[indexPath.row]
-
-            let result = self.coreDataManager.delete(budget)
-            switch result {
-            case .success:
-                self.fetchBudgets()
-                completion(true)
-            case .failure(let error):
-                ErrorPresenter.show(error, in: self)
-                completion(false)
-            }
+            self.viewModel.deleteBudget(at: indexPath.row)
+            completion(true)
         }
 
         return UISwipeActionsConfiguration(actions: [deleteAction])
@@ -435,6 +273,6 @@ extension BudgetViewController: UITableViewDelegate {
 extension BudgetViewController: AddBudgetDelegate {
 
     func didAddBudget() {
-        fetchBudgets()
+        viewModel.fetchBudgets()
     }
 }

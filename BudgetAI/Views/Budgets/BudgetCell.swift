@@ -103,6 +103,20 @@ final class BudgetCell: UITableViewCell {
 
     // MARK: - Configuration
 
+    func configure(with displayModel: BudgetDisplayModel) {
+        iconLabel.text = displayModel.categoryIcon
+        categoryNameLabel.text = displayModel.categoryName
+
+        progressView.progress = Float(displayModel.progressPercentage)
+        progressView.progressTintColor = displayModel.progressColor
+
+        amountLabel.text = "\(displayModel.spentAmount) з \(displayModel.budgetAmount)"
+
+        budgetLabel.text = displayModel.remainingAmount
+        budgetLabel.textColor = displayModel.progressColor
+    }
+
+    // Legacy method for backwards compatibility (if needed)
     func configure(with budget: Budget, spentAmount: Double) {
         iconLabel.text = budget.category?.icon ?? "📦"
         categoryNameLabel.text = budget.category?.name ?? "Без категорії"
