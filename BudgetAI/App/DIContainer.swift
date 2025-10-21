@@ -33,6 +33,16 @@ final class DIContainer {
         return CoreDataCategoryRepository(coreDataManager: coreDataManager)
     }()
 
+    // MARK: - Services
+
+    private(set) lazy var categorizationService: TransactionCategorizationService? = {
+        do {
+            return try MLTransactionCategorizationService(minimumConfidence: 0.3)
+        } catch {
+            return nil
+        }
+    }()
+
     // MARK: - ViewModels Factory
 
     func makeBudgetViewModel() -> BudgetViewModel {
