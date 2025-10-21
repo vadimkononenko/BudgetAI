@@ -32,6 +32,8 @@ final class StatCardView: UIView {
         return label
     }()
 
+    private var titleLabelLeadingConstraint: Constraint?
+
     // MARK: - Initialization
 
     init(icon: String, title: String, iconColor: UIColor, valueColor: UIColor) {
@@ -60,7 +62,7 @@ final class StatCardView: UIView {
         }
 
         titleLabel.snp.makeConstraints { make in
-            make.leading.equalTo(iconLabel.snp.trailing).offset(12)
+            titleLabelLeadingConstraint = make.leading.equalTo(iconLabel.snp.trailing).offset(12).constraint
             make.top.equalToSuperview().offset(16)
         }
 
@@ -77,6 +79,25 @@ final class StatCardView: UIView {
         iconLabel.textColor = iconColor
         titleLabel.text = title
         valueLabel.textColor = valueColor
+
+        // Update constraints based on icon presence
+        updateIconConstraints(hasIcon: !icon.isEmpty)
+    }
+
+    private func updateIconConstraints(hasIcon: Bool) {
+        iconLabel.isHidden = !hasIcon
+
+        titleLabelLeadingConstraint?.deactivate()
+
+        if hasIcon {
+            titleLabel.snp.makeConstraints { make in
+                titleLabelLeadingConstraint = make.leading.equalTo(iconLabel.snp.trailing).offset(12).constraint
+            }
+        } else {
+            titleLabel.snp.makeConstraints { make in
+                titleLabelLeadingConstraint = make.leading.equalToSuperview().offset(16).constraint
+            }
+        }
     }
 
     func updateValue(_ value: String, color: UIColor? = nil) {
