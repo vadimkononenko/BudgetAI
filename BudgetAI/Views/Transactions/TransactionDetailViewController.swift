@@ -12,13 +12,7 @@ final class TransactionDetailViewController: UIViewController {
 
     // MARK: - Properties
 
-    private let transaction: Transaction
-    private let coreDataManager = CoreDataManager.shared
-
-    // Track changes
-    private var hasUnsavedChanges = false
-    private var originalAmount: Double = 0
-    private var originalDescription: String?
+    private let viewModel: TransactionDetailViewModel
 
     // MARK: - UI Components
 
@@ -32,13 +26,17 @@ final class TransactionDetailViewController: UIViewController {
         return view
     }()
 
-    // Header Card
-    private lazy var headerCard: UIView = {
-        let view = UIView()
-        view.backgroundColor = .secondarySystemBackground
-        view.layer.cornerRadius = 12
-        return view
+    // Main content stack
+    private lazy var contentStackView: UIStackView = {
+        let stack = UIStackView()
+        stack.axis = .vertical
+        stack.spacing = 12
+        stack.distribution = .fill
+        return stack
     }()
+
+    // Header Card
+    private lazy var headerCard = CardView()
 
     private lazy var categoryIconLabel: UILabel = {
         let label = UILabel()
@@ -80,12 +78,7 @@ final class TransactionDetailViewController: UIViewController {
     }()
 
     // Description Card
-    private lazy var descriptionCard: UIView = {
-        let view = UIView()
-        view.backgroundColor = .secondarySystemBackground
-        view.layer.cornerRadius = 12
-        return view
-    }()
+    private lazy var descriptionCard = CardView()
 
     private lazy var descriptionTitleLabel: UILabel = {
         let label = UILabel()
@@ -105,14 +98,12 @@ final class TransactionDetailViewController: UIViewController {
     }()
 
     // Budget Card
-    private lazy var budgetCard: UIView = {
-        let view = UIView()
-        view.backgroundColor = .secondarySystemBackground
-        view.layer.cornerRadius = 12
-        view.isHidden = true
+    private lazy var budgetCard: CardView = {
+        let card = CardView()
+        card.isHidden = true
         let tapGesture = UITapGestureRecognizer(target: self, action: #selector(budgetCardTapped))
-        view.addGestureRecognizer(tapGesture)
-        return view
+        card.addGestureRecognizer(tapGesture)
+        return card
     }()
 
     private lazy var budgetTitleLabel: UILabel = {
@@ -144,14 +135,12 @@ final class TransactionDetailViewController: UIViewController {
     }()
 
     // Income Goal Card
-    private lazy var incomeGoalCard: UIView = {
-        let view = UIView()
-        view.backgroundColor = .secondarySystemBackground
-        view.layer.cornerRadius = 12
-        view.isHidden = true
+    private lazy var incomeGoalCard: CardView = {
+        let card = CardView()
+        card.isHidden = true
         let tapGesture = UITapGestureRecognizer(target: self, action: #selector(incomeGoalCardTapped))
-        view.addGestureRecognizer(tapGesture)
-        return view
+        card.addGestureRecognizer(tapGesture)
+        return card
     }()
 
     private lazy var incomeGoalTitleLabel: UILabel = {
@@ -185,12 +174,7 @@ final class TransactionDetailViewController: UIViewController {
     }()
 
     // Category Stats Card
-    private lazy var categoryStatsCard: UIView = {
-        let view = UIView()
-        view.backgroundColor = .secondarySystemBackground
-        view.layer.cornerRadius = 12
-        return view
-    }()
+    private lazy var categoryStatsCard = CardView()
 
     private lazy var categoryStatsTitleLabel: UILabel = {
         let label = UILabel()
@@ -229,7 +213,7 @@ final class TransactionDetailViewController: UIViewController {
     // MARK: - Initialization
 
     init(transaction: Transaction) {
-        self.transaction = transaction
+        self.viewModel = TransactionDetailViewModel(transaction: transaction)
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -243,7 +227,8 @@ final class TransactionDetailViewController: UIViewController {
         super.viewDidLoad()
         setupUI()
         setupNavigationBar()
-        loadData()
+        setupBindings()
+        viewModel.loadData()
     }
 
     // MARK: - Setup
@@ -253,41 +238,67 @@ final class TransactionDetailViewController: UIViewController {
         navigationController?.navigationBar.prefersLargeTitles = false
     }
 
+    private func setupBindings() {
+        viewModel.onDataUpdated = { [weak self] in
+            self?.updateUI()
+        }
+
+        viewModel.onChangesSaved = { [weak self] in
+            self?.updateSaveButton()
+        }
+
+        viewModel.onTransactionDeleted = { [weak self] in
+            self?.navigationController?.popViewController(animated: true)
+        }
+
+        viewModel.onError = { [weak self] error in
+            guard let self = self else { return }
+            ErrorPresenter.show(error, in: self)
+        }
+    }
+
     private func setupUI() {
         view.backgroundColor = .systemBackground
 
         view.addSubview(scrollView)
         scrollView.addSubview(contentView)
+        contentView.addSubview(contentStackView)
 
-        contentView.addSubview(headerCard)
+        // Setup Header Card
         headerCard.addSubview(categoryIconLabel)
         headerCard.addSubview(categoryNameLabel)
         headerCard.addSubview(amountTextField)
         headerCard.addSubview(currencyLabel)
         headerCard.addSubview(dateLabel)
 
-        contentView.addSubview(descriptionCard)
+        // Setup Description Card
         descriptionCard.addSubview(descriptionTitleLabel)
         descriptionCard.addSubview(descriptionTextField)
 
-        contentView.addSubview(budgetCard)
+        // Setup Budget Card
         budgetCard.addSubview(budgetTitleLabel)
         budgetCard.addSubview(budgetProgressView)
         budgetCard.addSubview(budgetRemainingLabel)
         budgetCard.addSubview(budgetChevronIcon)
 
-        contentView.addSubview(incomeGoalCard)
+        // Setup Income Goal Card
         incomeGoalCard.addSubview(incomeGoalTitleLabel)
         incomeGoalCard.addSubview(incomeGoalProgressView)
         incomeGoalCard.addSubview(incomeGoalAchievedLabel)
         incomeGoalCard.addSubview(incomeGoalChevronIcon)
 
-        contentView.addSubview(categoryStatsCard)
+        // Setup Category Stats Card
         categoryStatsCard.addSubview(categoryStatsTitleLabel)
         categoryStatsCard.addSubview(totalAmountLabel)
         categoryStatsCard.addSubview(transactionsCountLabel)
 
-        contentView.addSubview(deleteButton)
+        // Add cards to stack view
+        contentStackView.addArrangedSubview(headerCard)
+        contentStackView.addArrangedSubview(descriptionCard)
+        contentStackView.addArrangedSubview(budgetCard)
+        contentStackView.addArrangedSubview(incomeGoalCard)
+        contentStackView.addArrangedSubview(categoryStatsCard)
+        contentStackView.addArrangedSubview(deleteButton)
 
         setupConstraints()
     }
@@ -302,11 +313,12 @@ final class TransactionDetailViewController: UIViewController {
             make.width.equalTo(scrollView)
         }
 
-        // Header Card
-        headerCard.snp.makeConstraints { make in
-            make.top.equalToSuperview().offset(16)
+        contentStackView.snp.makeConstraints { make in
+            make.top.bottom.equalToSuperview().inset(16)
             make.leading.trailing.equalToSuperview().inset(16)
         }
+
+        // Header Card - internal constraints
 
         categoryIconLabel.snp.makeConstraints { make in
             make.leading.equalToSuperview().offset(16)
@@ -336,12 +348,7 @@ final class TransactionDetailViewController: UIViewController {
             make.top.equalTo(amountTextField.snp.bottom).offset(8)
         }
 
-        // Description Card
-        descriptionCard.snp.makeConstraints { make in
-            make.top.equalTo(headerCard.snp.bottom).offset(12)
-            make.leading.trailing.equalToSuperview().inset(16)
-        }
-
+        // Description Card - internal constraints
         descriptionTitleLabel.snp.makeConstraints { make in
             make.leading.top.equalToSuperview().offset(16)
         }
@@ -353,12 +360,7 @@ final class TransactionDetailViewController: UIViewController {
             make.height.greaterThanOrEqualTo(30)
         }
 
-        // Budget Card
-        budgetCard.snp.makeConstraints { make in
-            make.top.equalTo(descriptionCard.snp.bottom).offset(12)
-            make.leading.trailing.equalToSuperview().inset(16)
-        }
-
+        // Budget Card - internal constraints
         budgetTitleLabel.snp.makeConstraints { make in
             make.leading.top.equalToSuperview().offset(16)
         }
@@ -382,12 +384,7 @@ final class TransactionDetailViewController: UIViewController {
             make.width.height.equalTo(16)
         }
 
-        // Income Goal Card
-        incomeGoalCard.snp.makeConstraints { make in
-            make.top.equalTo(descriptionCard.snp.bottom).offset(12)
-            make.leading.trailing.equalToSuperview().inset(16)
-        }
-
+        // Income Goal Card - internal constraints
         incomeGoalTitleLabel.snp.makeConstraints { make in
             make.leading.top.equalToSuperview().offset(16)
         }
@@ -411,12 +408,7 @@ final class TransactionDetailViewController: UIViewController {
             make.width.height.equalTo(16)
         }
 
-        // Category Stats Card (positioned after both budget and income goal cards)
-        categoryStatsCard.snp.makeConstraints { make in
-            make.top.equalTo(incomeGoalCard.snp.bottom).offset(12)
-            make.leading.trailing.equalToSuperview().inset(16)
-        }
-
+        // Category Stats Card - internal constraints
         categoryStatsTitleLabel.snp.makeConstraints { make in
             make.leading.top.equalToSuperview().offset(16)
         }
@@ -434,242 +426,88 @@ final class TransactionDetailViewController: UIViewController {
 
         // Delete Button
         deleteButton.snp.makeConstraints { make in
-            make.top.equalTo(categoryStatsCard.snp.bottom).offset(32)
-            make.leading.trailing.equalToSuperview().inset(16)
             make.height.equalTo(50)
-            make.bottom.equalToSuperview().offset(-32)
         }
+
+        // Add spacing before delete button
+        contentStackView.setCustomSpacing(20, after: categoryStatsCard)
     }
 
-    private func loadData() {
-        // Save original values
-        originalAmount = transaction.amount
-        originalDescription = transaction.transactionDescription
-
+    private func updateUI() {
         // Load header data
-        categoryIconLabel.text = transaction.category?.icon ?? "📦"
-        categoryNameLabel.text = transaction.category?.name ?? "Без категорії"
+        categoryIconLabel.text = viewModel.categoryIcon
+        categoryNameLabel.text = viewModel.categoryName
 
-        let typeColor: UIColor = transaction.type == "expense" ? .systemRed : .systemGreen
-        amountTextField.textColor = typeColor
-        currencyLabel.textColor = typeColor
-        amountTextField.text = String(format: "%.2f", transaction.amount)
+        amountTextField.textColor = viewModel.transactionTypeColor
+        currencyLabel.textColor = viewModel.transactionTypeColor
+        amountTextField.text = viewModel.amountText
 
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "d MMMM yyyy, HH:mm"
-        dateFormatter.locale = Locale(identifier: "uk_UA")
-        dateLabel.text = dateFormatter.string(from: transaction.date ?? Date())
+        dateLabel.text = viewModel.formattedDate
 
         // Load description
-        descriptionTextField.text = transaction.transactionDescription
+        descriptionTextField.text = viewModel.description
 
-        // Load budget data (if expense)
-        if transaction.type == "expense", let category = transaction.category {
-            loadBudgetData(for: category)
-        }
+        // Update budget card
+        updateBudgetCard()
 
-        // Load income goal data (if income)
-        if transaction.type == "income", let category = transaction.category {
-            loadIncomeGoalData(for: category)
-        }
+        // Update income goal card
+        updateIncomeGoalCard()
 
-        // Load category stats
-        loadCategoryStats()
+        // Update category stats
+        updateCategoryStatsCard()
     }
 
-    private func loadBudgetData(for category: Category) {
-        let calendar = Calendar.current
-        let components = calendar.dateComponents([.month, .year], from: transaction.date ?? Date())
-        let month = Int16(components.month ?? 1)
-        let year = Int16(components.year ?? 2025)
-
-        let predicate = NSPredicate(format: "category == %@ AND month == %d AND year == %d AND isActive == YES", category, month, year)
-        let result = coreDataManager.fetch(Budget.self, predicate: predicate)
-
-        switch result {
-        case .success(let budgets):
-            if let budget = budgets.first {
-                budgetCard.isHidden = false
-
-                // Get spent amount
-                let spentAmount = getSpentAmount(for: category, month: month, year: year)
-                let budgetAmount = budget.amount
-                let remaining = budgetAmount - spentAmount
-                let progress = Float(min(spentAmount / budgetAmount, 1.0))
-
-                budgetProgressView.progress = progress
-
-                if progress >= 1.0 {
-                    budgetProgressView.progressTintColor = .systemRed
-                    budgetRemainingLabel.textColor = .systemRed
-                    budgetRemainingLabel.text = String(format: "Перевищено на %.2f ₴", abs(remaining))
-                } else if progress >= 0.8 {
-                    budgetProgressView.progressTintColor = .systemOrange
-                    budgetRemainingLabel.textColor = .systemOrange
-                    budgetRemainingLabel.text = String(format: "Залишилось %.2f ₴", remaining)
-                } else {
-                    budgetProgressView.progressTintColor = .systemGreen
-                    budgetRemainingLabel.textColor = .systemGreen
-                    budgetRemainingLabel.text = String(format: "Залишилось %.2f ₴", remaining)
-                }
-            }
-        case .failure:
+    private func updateBudgetCard() {
+        if let budgetData = viewModel.budgetData {
+            budgetCard.isHidden = false
+            budgetProgressView.progress = budgetData.progress
+            budgetProgressView.progressTintColor = budgetData.progressTintColor
+            budgetRemainingLabel.textColor = budgetData.remainingLabelColor
+            budgetRemainingLabel.text = budgetData.remainingText
+        } else {
             budgetCard.isHidden = true
         }
     }
 
-    private func loadIncomeGoalData(for category: Category) {
-        let calendar = Calendar.current
-        let components = calendar.dateComponents([.month, .year], from: transaction.date ?? Date())
-        let month = Int16(components.month ?? 1)
-        let year = Int16(components.year ?? 2025)
-
-        let predicate = NSPredicate(format: "category == %@ AND month == %d AND year == %d AND isActive == YES", category, month, year)
-        let result = coreDataManager.fetch(Budget.self, predicate: predicate)
-
-        switch result {
-        case .success(let budgets):
-            if let goal = budgets.first {
-                incomeGoalCard.isHidden = false
-
-                // Get achieved income amount
-                let achievedAmount = getIncomeAmount(for: category, month: month, year: year)
-                let goalAmount = goal.amount
-                let progress = Float(min(achievedAmount / goalAmount, 1.0))
-
-                incomeGoalProgressView.progress = progress
-
-                if progress >= 1.0 {
-                    incomeGoalProgressView.progressTintColor = .systemGreen
-                    incomeGoalAchievedLabel.textColor = .systemGreen
-                    incomeGoalAchievedLabel.text = String(format: "Досягнуто %.2f ₴ (%.0f%%)", achievedAmount, progress * 100)
-                } else if progress >= 0.8 {
-                    incomeGoalProgressView.progressTintColor = .systemGreen
-                    incomeGoalAchievedLabel.textColor = .systemGreen
-                    incomeGoalAchievedLabel.text = String(format: "Досягнуто %.2f ₴ (%.0f%%)", achievedAmount, progress * 100)
-                } else {
-                    incomeGoalProgressView.progressTintColor = .systemOrange
-                    incomeGoalAchievedLabel.textColor = .systemOrange
-                    incomeGoalAchievedLabel.text = String(format: "Досягнуто %.2f ₴ (%.0f%%)", achievedAmount, progress * 100)
-                }
-            }
-        case .failure:
+    private func updateIncomeGoalCard() {
+        if let incomeGoalData = viewModel.incomeGoalData {
+            incomeGoalCard.isHidden = false
+            incomeGoalProgressView.progress = incomeGoalData.progress
+            incomeGoalProgressView.progressTintColor = incomeGoalData.progressTintColor
+            incomeGoalAchievedLabel.textColor = incomeGoalData.achievedLabelColor
+            incomeGoalAchievedLabel.text = incomeGoalData.achievedText
+        } else {
             incomeGoalCard.isHidden = true
         }
     }
 
-    private func getSpentAmount(for category: Category, month: Int16, year: Int16) -> Double {
-        let calendar = Calendar.current
-        var components = DateComponents()
-        components.year = Int(year)
-        components.month = Int(month)
-
-        guard let startOfMonth = calendar.date(from: components),
-              let endOfMonth = calendar.date(byAdding: DateComponents(month: 1, day: -1), to: startOfMonth) else {
-            return 0
-        }
-
-        let predicate = NSPredicate(
-            format: "category == %@ AND type == %@ AND date >= %@ AND date <= %@",
-            category, "expense", startOfMonth as NSDate, endOfMonth as NSDate
-        )
-
-        let result = coreDataManager.fetch(Transaction.self, predicate: predicate)
-
-        switch result {
-        case .success(let transactions):
-            return transactions.reduce(0) { $0 + $1.amount }
-        case .failure:
-            return 0
-        }
-    }
-
-    private func getIncomeAmount(for category: Category, month: Int16, year: Int16) -> Double {
-        let calendar = Calendar.current
-        var components = DateComponents()
-        components.year = Int(year)
-        components.month = Int(month)
-
-        guard let startOfMonth = calendar.date(from: components),
-              let endOfMonth = calendar.date(byAdding: DateComponents(month: 1, day: -1), to: startOfMonth) else {
-            return 0
-        }
-
-        let predicate = NSPredicate(
-            format: "category == %@ AND type == %@ AND date >= %@ AND date <= %@",
-            category, "income", startOfMonth as NSDate, endOfMonth as NSDate
-        )
-
-        let result = coreDataManager.fetch(Transaction.self, predicate: predicate)
-
-        switch result {
-        case .success(let transactions):
-            return transactions.reduce(0) { $0 + $1.amount }
-        case .failure:
-            return 0
-        }
-    }
-
-    private func loadCategoryStats() {
-        guard let category = transaction.category else { return }
-
-        let calendar = Calendar.current
-        let components = calendar.dateComponents([.month, .year], from: transaction.date ?? Date())
-        let month = Int16(components.month ?? 1)
-        let year = Int16(components.year ?? 2025)
-
-        var dateComponents = DateComponents()
-        dateComponents.year = Int(year)
-        dateComponents.month = Int(month)
-
-        guard let startOfMonth = calendar.date(from: dateComponents),
-              let endOfMonth = calendar.date(byAdding: DateComponents(month: 1, day: -1), to: startOfMonth) else {
-            return
-        }
-
-        let predicate = NSPredicate(
-            format: "category == %@ AND type == %@ AND date >= %@ AND date <= %@",
-            category, transaction.type ?? "expense", startOfMonth as NSDate, endOfMonth as NSDate
-        )
-
-        let result = coreDataManager.fetch(Transaction.self, predicate: predicate)
-
-        switch result {
-        case .success(let transactions):
-            let totalAmount = transactions.reduce(0) { $0 + $1.amount }
-            let typeText = transaction.type == "expense" ? "витрачено" : "отримано"
-            totalAmountLabel.text = String(format: "Всього %@: %.2f ₴", typeText, totalAmount)
-            transactionsCountLabel.text = String(format: "Всього транзакцій: %d", transactions.count)
-        case .failure:
+    private func updateCategoryStatsCard() {
+        if let statsData = viewModel.categoryStatsData {
+            totalAmountLabel.text = statsData.totalText
+            transactionsCountLabel.text = statsData.countText
+        } else {
             totalAmountLabel.text = "Немає даних"
             transactionsCountLabel.text = ""
         }
     }
 
+
     // MARK: - Actions
 
     @objc private func textFieldDidChange() {
-        checkForChanges()
+        viewModel.updateDescription(descriptionTextField.text)
+        updateSaveButton()
     }
 
     @objc private func amountDidChange() {
-        checkForChanges()
-    }
-
-    private func checkForChanges() {
-        let currentDescription = descriptionTextField.text
         let currentAmountText = amountTextField.text ?? ""
         let currentAmount = Double(currentAmountText.replacingOccurrences(of: ",", with: ".")) ?? 0
-
-        let descriptionChanged = currentDescription != originalDescription
-        let amountChanged = abs(currentAmount - originalAmount) > 0.001
-
-        hasUnsavedChanges = descriptionChanged || amountChanged
+        viewModel.updateAmount(currentAmount)
         updateSaveButton()
     }
 
     private func updateSaveButton() {
-        if hasUnsavedChanges {
+        if viewModel.hasUnsavedChanges {
             navigationItem.rightBarButtonItem = UIBarButtonItem(
                 title: "Зберегти",
                 style: .prominent,
@@ -682,48 +520,24 @@ final class TransactionDetailViewController: UIViewController {
     }
 
     @objc private func saveButtonTapped() {
-        // Update amount
-        if let amountText = amountTextField.text {
-            let cleanedAmount = amountText.replacingOccurrences(of: ",", with: ".")
-            if let newAmount = Double(cleanedAmount), newAmount > 0 {
-                transaction.amount = newAmount
-            } else {
-                // Show error
-                let alert = UIAlertController(
-                    title: "Помилка",
-                    message: "Введіть коректну суму",
-                    preferredStyle: .alert
-                )
-                alert.addAction(UIAlertAction(title: "OK", style: .default))
-                present(alert, animated: true)
-                return
-            }
-        }
+        guard let amountText = amountTextField.text else { return }
 
-        // Update description
-        transaction.transactionDescription = descriptionTextField.text
+        let cleanedAmount = amountText.replacingOccurrences(of: ",", with: ".")
+        guard let newAmount = Double(cleanedAmount) else { return }
 
-        // Save to Core Data
-        let result = coreDataManager.saveContext()
+        let result = viewModel.saveChanges(amount: newAmount, description: descriptionTextField.text)
+
         switch result {
         case .success:
-            originalAmount = transaction.amount
-            originalDescription = transaction.transactionDescription
-            hasUnsavedChanges = false
-            updateSaveButton()
-
-            // Update UI
-            if transaction.type == "expense", let category = transaction.category {
-                loadBudgetData(for: category)
-            }
-            if transaction.type == "income", let category = transaction.category {
-                loadIncomeGoalData(for: category)
-            }
-            loadCategoryStats()
-
-            NotificationCenter.default.post(name: .transactionDidAdd, object: nil)
+            break // Handled by onChangesSaved callback
         case .failure(let error):
-            ErrorPresenter.show(error, in: self)
+            let alert = UIAlertController(
+                title: "Помилка",
+                message: error.localizedDescription,
+                preferredStyle: .alert
+            )
+            alert.addAction(UIAlertAction(title: "OK", style: .default))
+            present(alert, animated: true)
         }
     }
 
@@ -736,65 +550,34 @@ final class TransactionDetailViewController: UIViewController {
 
         alert.addAction(UIAlertAction(title: "Скасувати", style: .cancel))
         alert.addAction(UIAlertAction(title: "Видалити", style: .destructive) { [weak self] _ in
-            self?.deleteTransaction()
+            self?.viewModel.deleteTransaction()
         })
 
         present(alert, animated: true)
     }
 
-    private func deleteTransaction() {
-        let result = coreDataManager.delete(transaction)
-        switch result {
-        case .success:
-            NotificationCenter.default.post(name: .transactionDidDelete, object: nil)
-            navigationController?.popViewController(animated: true)
-        case .failure(let error):
-            ErrorPresenter.show(error, in: self)
-        }
-    }
-
     @objc private func budgetCardTapped() {
-        guard let category = transaction.category else { return }
+        guard let budget = viewModel.getBudget() else { return }
 
         let calendar = Calendar.current
-        let components = calendar.dateComponents([.month, .year], from: transaction.date ?? Date())
+        let components = calendar.dateComponents([.month, .year], from: viewModel.date)
         let month = Int16(components.month ?? 1)
         let year = Int16(components.year ?? 2025)
 
-        let predicate = NSPredicate(format: "category == %@ AND month == %d AND year == %d AND isActive == YES", category, month, year)
-        let result = coreDataManager.fetch(Budget.self, predicate: predicate)
-
-        switch result {
-        case .success(let budgets):
-            if let budget = budgets.first {
-                let detailVC = BudgetDetailViewController(budget: budget, month: month, year: year)
-                navigationController?.pushViewController(detailVC, animated: true)
-            }
-        case .failure:
-            break
-        }
+        let detailVC = BudgetDetailViewController(budget: budget, month: month, year: year)
+        navigationController?.pushViewController(detailVC, animated: true)
     }
 
     @objc private func incomeGoalCardTapped() {
-        guard let category = transaction.category else { return }
+        guard let goal = viewModel.getBudget() else { return }
 
         let calendar = Calendar.current
-        let components = calendar.dateComponents([.month, .year], from: transaction.date ?? Date())
+        let components = calendar.dateComponents([.month, .year], from: viewModel.date)
         let month = Int16(components.month ?? 1)
         let year = Int16(components.year ?? 2025)
 
-        let predicate = NSPredicate(format: "category == %@ AND month == %d AND year == %d AND isActive == YES", category, month, year)
-        let result = coreDataManager.fetch(Budget.self, predicate: predicate)
-
-        switch result {
-        case .success(let budgets):
-            if let goal = budgets.first {
-                let detailVC = BudgetDetailViewController(budget: goal, month: month, year: year)
-                navigationController?.pushViewController(detailVC, animated: true)
-            }
-        case .failure:
-            break
-        }
+        let detailVC = BudgetDetailViewController(budget: goal, month: month, year: year)
+        navigationController?.pushViewController(detailVC, animated: true)
     }
 }
 

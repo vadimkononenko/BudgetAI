@@ -2,7 +2,7 @@
 //  StatCardView.swift
 //  BudgetAI
 //
-//  Created by Claude Code on 20.10.2025.
+//  Created by Vadim Kononenko on 20.10.2025.
 //
 
 import UIKit

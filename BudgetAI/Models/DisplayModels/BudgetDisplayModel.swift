@@ -2,7 +2,7 @@
 //  BudgetDisplayModel.swift
 //  BudgetAI
 //
-//  Created by Claude Code on 16.10.2025.
+//  Created by Vadim Kononenko on 16.10.2025.
 //
 
 import UIKit
