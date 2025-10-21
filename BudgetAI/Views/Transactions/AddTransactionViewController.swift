@@ -13,9 +13,12 @@ final class AddTransactionViewController: UIViewController {
     // MARK: - Properties
 
     private let coreDataManager = CoreDataManager.shared
+    private let categorizationService = DIContainer.shared.categorizationService
     private var selectedCategory: Category?
     private var selectedType: String = "expense"
     private var categories: [Category] = []
+    private var isCategoryAutoSelected = false
+    private var categorizationTask: Task<Void, Never>?
 
     // MARK: - UI Components
 
@@ -248,6 +251,7 @@ final class AddTransactionViewController: UIViewController {
 
     private func didSelectCategory(_ category: Category) {
         selectedCategory = category
+        isCategoryAutoSelected = false // Скидаємо прапорець при ручному виборі
         categoryButton.setTitle(category.name, for: .normal)
         categoryIconLabel.text = category.icon
     }
@@ -257,10 +261,16 @@ final class AddTransactionViewController: UIViewController {
     @objc private func typeChanged() {
         selectedType = typeSegmentedControl.selectedSegmentIndex == 0 ? "expense" : "income"
         selectedCategory = nil
+        isCategoryAutoSelected = false // Скидаємо прапорець при зміні типу
         categoryButton.setTitle("Вибрати категорію", for: .normal)
         categoryIconLabel.text = nil
         loadCategories()
         updateCategoryMenu()
+
+        // Спробуємо передбачити категорію знову, якщо є опис
+        if !descriptionTextView.text.isEmpty {
+            scheduleCategoryPrediction(delay: 0.3)
+        }
     }
 
     @objc private func saveButtonTapped() {
@@ -322,5 +332,66 @@ extension AddTransactionViewController: UITextViewDelegate {
 
     func textViewDidChange(_ textView: UITextView) {
         descriptionPlaceholder.isHidden = !textView.text.isEmpty
+
+        guard !textView.text.isEmpty else {
+            categorizationTask?.cancel()
+            return
+        }
+
+        guard textView.text.count >= 3 else {
+            return
+        }
+
+        guard categorizationService != nil else {
+            return
+        }
+
+        scheduleCategoryPrediction(delay: 0.5)
+    }
+
+    private func scheduleCategoryPrediction(delay: TimeInterval) {
+        categorizationTask?.cancel()
+
+        categorizationTask = Task {
+            do {
+                try await Task.sleep(for: .seconds(delay))
+                guard !Task.isCancelled else { return }
+                predictCategory()
+            } catch { }
+        }
+    }
+
+    @MainActor
+    private func predictCategory() {
+        guard let description = descriptionTextView.text, !description.isEmpty else {
+            return
+        }
+
+        guard let service = categorizationService else {
+            return
+        }
+
+        guard let predictedCategoryName = service.predictCategory(for: description, type: selectedType) else {
+            return
+        }
+
+        guard let category = categories.first(where: { $0.name == predictedCategoryName }) else {
+            return
+        }
+
+        guard selectedCategory == nil || isCategoryAutoSelected else {
+            return
+        }
+
+        selectedCategory = category
+        isCategoryAutoSelected = true
+
+        UIView.animate(withDuration: 0.3) {
+            self.categoryButton.setTitle("🤖 \(category.name ?? "")", for: .normal)
+            self.categoryIconLabel.text = category.icon
+        }
+
+        let generator = UIImpactFeedbackGenerator(style: .light)
+        generator.impactOccurred()
     }
 }

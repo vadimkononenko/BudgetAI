@@ -35,6 +35,14 @@ final class DIContainer {
 
     // MARK: - Services
 
+    private(set) lazy var categorizationService: TransactionCategorizationService? = {
+        do {
+            return try MLTransactionCategorizationService(minimumConfidence: 0.3)
+        } catch {
+            return nil
+        }
+    }()
+
     private(set) lazy var expenseDataAggregator: ExpenseDataAggregator = {
         return ExpenseDataAggregator(
             transactionRepository: transactionRepository,
