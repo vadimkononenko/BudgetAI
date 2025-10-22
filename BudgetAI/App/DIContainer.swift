@@ -43,6 +43,20 @@ final class DIContainer {
         }
     }()
 
+    private(set) lazy var expenseDataAggregator: ExpenseDataAggregator = {
+        return ExpenseDataAggregator(
+            transactionRepository: transactionRepository,
+            categoryRepository: categoryRepository
+        )
+    }()
+
+    private(set) lazy var expenseForecastService: ExpenseForecastService = {
+        return ExpenseForecastService(
+            transactionRepository: transactionRepository,
+            categoryRepository: categoryRepository
+        )
+    }()
+
     // MARK: - ViewModels Factory
 
     func makeBudgetViewModel() -> BudgetViewModel {
@@ -66,6 +80,13 @@ final class DIContainer {
         )
     }
 
+    func makeForecastViewModel() -> ForecastViewModel {
+        return ForecastViewModel(
+            forecastService: expenseForecastService,
+            dataAggregator: expenseDataAggregator
+        )
+    }
+
     // MARK: - View Controllers Factory
 
     func makeBudgetViewController() -> BudgetViewController {
@@ -83,15 +104,25 @@ final class DIContainer {
         return StatisticsViewController(viewModel: viewModel)
     }
 
+    func makeForecastViewController() -> ForecastViewController {
+        let viewModel = makeForecastViewModel()
+        return ForecastViewController(
+            viewModel: viewModel,
+            categoryRepository: categoryRepository
+        )
+    }
+
     func makeMainTabBarController() -> MainTabBarController {
         let budgetVC = makeBudgetViewController()
         let transactionsVC = makeTransactionsViewController()
         let statisticsVC = makeStatisticsViewController()
+        let forecastVC = makeForecastViewController()
 
         return MainTabBarController(
             transactionsVC: transactionsVC,
             budgetVC: budgetVC,
-            statisticsVC: statisticsVC
+            statisticsVC: statisticsVC,
+            forecastVC: forecastVC
         )
     }
 

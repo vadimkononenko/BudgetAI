@@ -348,7 +348,7 @@ extension AddTransactionViewController: UITextViewDelegate {
 
         scheduleCategoryPrediction(delay: 0.5)
     }
-    
+
     private func scheduleCategoryPrediction(delay: TimeInterval) {
         categorizationTask?.cancel()
 

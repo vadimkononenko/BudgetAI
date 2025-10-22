@@ -43,7 +43,6 @@ final class DefaultData {
         switch existingResult {
         case .success(let existingCategories):
             guard existingCategories.isEmpty else {
-                print("Categories already exist, skipping initialization")
                 return
             }
 

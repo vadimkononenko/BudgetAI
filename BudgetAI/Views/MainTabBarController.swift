@@ -11,10 +11,10 @@ final class MainTabBarController: UITabBarController {
 
     // MARK: - Initialization
 
-    init(transactionsVC: TransactionsViewController, budgetVC: BudgetViewController, statisticsVC: StatisticsViewController) {
+    init(transactionsVC: TransactionsViewController, budgetVC: BudgetViewController, statisticsVC: StatisticsViewController, forecastVC: ForecastViewController) {
         super.init(nibName: nil, bundle: nil)
         setupTabBar()
-        setupViewControllers(transactionsVC: transactionsVC, budgetVC: budgetVC, statisticsVC: statisticsVC)
+        setupViewControllers(transactionsVC: transactionsVC, budgetVC: budgetVC, statisticsVC: statisticsVC, forecastVC: forecastVC)
     }
 
     required init?(coder: NSCoder) {
@@ -35,7 +35,7 @@ final class MainTabBarController: UITabBarController {
         tabBar.backgroundColor = .systemBackground
     }
 
-    private func setupViewControllers(transactionsVC: TransactionsViewController, budgetVC: BudgetViewController, statisticsVC: StatisticsViewController) {
+    private func setupViewControllers(transactionsVC: TransactionsViewController, budgetVC: BudgetViewController, statisticsVC: StatisticsViewController, forecastVC: ForecastViewController) {
         let transactionsNav = UINavigationController(rootViewController: transactionsVC)
         transactionsNav.tabBarItem = UITabBarItem(
             title: "Транзакції",
@@ -57,6 +57,13 @@ final class MainTabBarController: UITabBarController {
             selectedImage: UIImage(systemName: "chart.pie.fill")
         )
 
-        viewControllers = [transactionsNav, budgetsNav, statisticsNav]
+        let forecastNav = UINavigationController(rootViewController: forecastVC)
+        forecastNav.tabBarItem = UITabBarItem(
+            title: "Прогноз",
+            image: UIImage(systemName: "chart.line.uptrend.xyaxis"),
+            selectedImage: UIImage(systemName: "chart.line.uptrend.xyaxis")
+        )
+
+        viewControllers = [transactionsNav, budgetsNav, statisticsNav, forecastNav]
     }
 }

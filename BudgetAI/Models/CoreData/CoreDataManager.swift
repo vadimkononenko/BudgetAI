@@ -113,7 +113,6 @@ final class CoreDataManager {
         salaryCategory.icon = "💰"
         salaryCategory.type = "income"
 
-        // Создаем тестовые транзакции
         let transaction1 = Transaction(context: context)
         transaction1.id = UUID()
         transaction1.amount = 150.0
