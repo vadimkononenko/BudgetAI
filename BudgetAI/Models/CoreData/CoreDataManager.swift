@@ -6,7 +6,6 @@
 //
 
 import CoreData
-import os.log
 
 // MARK: - CoreData Errors
 
@@ -43,8 +42,6 @@ final class CoreDataManager {
     private(set) var isInitialized: Bool = false
     private(set) var initializationError: CoreDataError?
 
-    private let logger = Logger(subsystem: "com.budgetai.app", category: "CoreData")
-
     var context: NSManagedObjectContext {
         persistentContainer.viewContext
     }
@@ -67,7 +64,6 @@ final class CoreDataManager {
             if let error = error {
                 self.initializationError = .failedToLoad(error)
                 self.isInitialized = false
-                self.logger.error("❌ CoreData failed to load: \(error.localizedDescription)")
 
                 // Try to setup in-memory store as fallback
                 self.setupInMemoryStoreFallback()
@@ -81,16 +77,12 @@ final class CoreDataManager {
     }
 
     private func setupInMemoryStoreFallback() {
-        logger.warning("⚠️ Setting up in-memory store as fallback")
-
         let inMemoryContainer = NSPersistentContainer(name: "BudgetAI")
         inMemoryContainer.persistentStoreDescriptions.first?.url = URL(fileURLWithPath: "/dev/null")
 
         inMemoryContainer.loadPersistentStores { [weak self] _, error in
             if error == nil {
                 self?.isInitialized = true
-            } else {
-                self?.logger.error("❌ Failed to initialize in-memory store")
             }
         }
     }
@@ -148,13 +140,12 @@ final class CoreDataManager {
         transaction3.transactionDescription = "Місячна зарплата"
         transaction3.category = salaryCategory
 
-        manager.saveContext()
+        _ = manager.saveContext()
         return manager
     }
 
     func saveContext() -> Result<Void, CoreDataError> {
         guard isInitialized else {
-            logger.error("❌ Attempt to save while not initialized")
             return .failure(.notInitialized)
         }
 
@@ -165,10 +156,9 @@ final class CoreDataManager {
 
         do {
             try context.save()
-            logger.debug("✅ Context saved successfully")
             return .success(())
         } catch {
-            logger.error("❌ Failed to save context: \(error.localizedDescription)")
+            print("❌ Failed to save context: \(error.localizedDescription)")
             context.rollback()
             return .failure(.failedToSave(error))
         }
@@ -193,7 +183,7 @@ final class CoreDataManager {
             let results = try context.fetch(request) as? [T] ?? []
             return .success(results)
         } catch {
-            logger.error("❌ Failed to fetch \(String(describing: type)): \(error.localizedDescription)")
+            print("❌ Failed to fetch \(String(describing: type)): \(error.localizedDescription)")
             return .failure(.fetchFailed(error))
         }
     }
