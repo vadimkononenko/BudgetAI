@@ -73,7 +73,6 @@ final class CoreDataManager {
                 self.setupInMemoryStoreFallback()
             } else {
                 self.isInitialized = true
-                self.logger.info("✅ CoreData initialized successfully")
             }
         }
 
@@ -90,7 +89,6 @@ final class CoreDataManager {
         inMemoryContainer.loadPersistentStores { [weak self] _, error in
             if error == nil {
                 self?.isInitialized = true
-                self?.logger.info("✅ In-memory store initialized")
             } else {
                 self?.logger.error("❌ Failed to initialize in-memory store")
             }
@@ -123,7 +121,6 @@ final class CoreDataManager {
         salaryCategory.icon = "💰"
         salaryCategory.type = "income"
 
-        // Создаем тестовые транзакции
         let transaction1 = Transaction(context: context)
         transaction1.id = UUID()
         transaction1.amount = 150.0
@@ -194,7 +191,6 @@ final class CoreDataManager {
 
         do {
             let results = try context.fetch(request) as? [T] ?? []
-            logger.debug("✅ Fetched \(results.count) objects of type \(String(describing: type))")
             return .success(results)
         } catch {
             logger.error("❌ Failed to fetch \(String(describing: type)): \(error.localizedDescription)")
