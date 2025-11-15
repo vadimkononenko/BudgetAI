@@ -38,7 +38,6 @@ final class ForecastCell: UITableViewCell {
         let label = UILabel()
         label.translatesAutoresizingMaskIntoConstraints = false
         label.font = .systemFont(ofSize: 24, weight: .bold)
-        label.textColor = .systemRed
         label.textAlignment = .right
         return label
     }()

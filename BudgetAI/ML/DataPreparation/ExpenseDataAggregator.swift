@@ -2,30 +2,52 @@
 //  ExpenseDataAggregator.swift
 //  BudgetAI
 //
-//  Created by Claude on 21.10.2025.
+//  Created by Vadim Kononenko on 21.10.2025.
 //
 
 import Foundation
 import CoreData
 
+/// Represents aggregated expense data for a specific month and category
 struct MonthlyExpenseData {
+    /// Year of the expense data
     let year: Int
-    let month: Int
-    let categoryName: String
-    let totalAmount: Double
-    let averageLastThreeMonths: Double
-    let season: Int // 1 = Winter, 2 = Spring, 3 = Summer, 4 = Fall
 
+    /// Month of the expense data (1-12)
+    let month: Int
+
+    /// Name of the expense category
+    let categoryName: String
+
+    /// Total amount spent in this category for this month
+    let totalAmount: Double
+
+    /// Average amount spent in the last 3 months for this category
+    let averageLastThreeMonths: Double
+
+    /// Season identifier (1 = Winter, 2 = Spring, 3 = Summer, 4 = Fall)
+    let season: Int
+
+    /// Formatted month key in YYYY-MM format
     var monthKey: String {
         return "\(year)-\(String(format: "%02d", month))"
     }
 }
 
+/// Aggregates and prepares expense data for machine learning model training and forecasting
+/// Processes transaction data into monthly aggregates with calculated features
 final class ExpenseDataAggregator {
 
+    /// Repository for accessing transaction data
     private let transactionRepository: TransactionRepository
+
+    /// Repository for accessing category data
     private let categoryRepository: CategoryRepository
 
+    /// Initializes the expense data aggregator
+    /// - Parameters:
+    ///   - transactionRepository: Repository for accessing transaction data
+    ///   - categoryRepository: Repository for accessing category data
     init(transactionRepository: TransactionRepository, categoryRepository: CategoryRepository) {
         self.transactionRepository = transactionRepository
         self.categoryRepository = categoryRepository
@@ -33,17 +55,19 @@ final class ExpenseDataAggregator {
 
     // MARK: - Public Methods
 
-    /// Агрегує історичні дані по місяцях та категоріях
+    /// Aggregates historical expense data by months and categories
+    /// Calculates total amounts, 3-month averages, and seasonal data for ML model training
+    /// - Returns: Result containing array of monthly expense data or error
     func aggregateMonthlyExpenses() -> Result<[MonthlyExpenseData], CoreDataError> {
-        // Отримуємо всі транзакції
+        // Get all transactions
         guard case .success(let allTransactions) = transactionRepository.fetchAllTransactions() else {
             return .failure(.fetchFailed(NSError(domain: "ExpenseDataAggregator", code: 1, userInfo: nil)))
         }
 
-        // Фільтруємо тільки витрати
+        // Filter only expenses
         let expenses = allTransactions.filter { $0.type == "expense" }
 
-        // Групуємо по місяцях та категоріях
+        // Group by months and categories
         var monthlyData: [String: [String: Double]] = [:] // [monthKey: [categoryName: totalAmount]]
 
         for expense in expenses {
@@ -65,13 +89,13 @@ final class ExpenseDataAggregator {
             monthlyData[monthKey]?[categoryName] = currentAmount + expense.amount
         }
 
-        // Створюємо масив MonthlyExpenseData з розрахунком середніх
+        // Create array of MonthlyExpenseData with average calculations
         var result: [MonthlyExpenseData] = []
 
-        // Сортуємо місяці для правильного розрахунку середніх
+        // Sort months for correct average calculation
         let sortedMonthKeys = monthlyData.keys.sorted()
 
-        // Для кожного місяця та категорії розраховуємо середнє за 3 місяці
+        // For each month and category, calculate 3-month average
         for monthKey in sortedMonthKeys {
             guard let categories = monthlyData[monthKey] else { continue }
 
@@ -108,13 +132,15 @@ final class ExpenseDataAggregator {
         return .success(result)
     }
 
-    /// Експортує дані у форматі CSV для CreateML
+    /// Exports aggregated expense data in CSV format for CreateML training
+    /// - Returns: Result containing URL of exported CSV file or error
+    /// - Note: Requires minimum 3 months of historical data
     func exportToCSV() -> Result<URL, Error> {
         guard case .success(let data) = aggregateMonthlyExpenses() else {
             return .failure(NSError(domain: "ExpenseDataAggregator", code: 2, userInfo: [NSLocalizedDescriptionKey: "Failed to aggregate data"]))
         }
 
-        // Мінімум 3 місяці історії потрібно для тренування
+        // Minimum 3 months of history required for training
         guard data.count >= 3 else {
             return .failure(NSError(domain: "ExpenseDataAggregator", code: 3, userInfo: [NSLocalizedDescriptionKey: "Not enough historical data. At least 3 months required."]))
         }
@@ -126,7 +152,7 @@ final class ExpenseDataAggregator {
             csvString.append(row)
         }
 
-        // Зберігаємо файл у тимчасову директорію
+        // Save file to temporary directory
         let fileName = "expense_training_data.csv"
         let fileURL = FileManager.default.temporaryDirectory.appendingPathComponent(fileName)
 
@@ -138,18 +164,20 @@ final class ExpenseDataAggregator {
         }
     }
 
-    /// Перевіряє чи достатньо даних для прогнозування
+    /// Checks if there's enough historical data for ML-based forecasting
+    /// - Returns: True if at least 3 months of expense data is available, false otherwise
     func hasEnoughDataForForecasting() -> Bool {
         guard case .success(let data) = aggregateMonthlyExpenses() else {
             return false
         }
 
-        // Потрібно мінімум 3 місяці історії для ML моделі
+        // Minimum 3 months of history required for ML model
         let uniqueMonths = Set(data.map { $0.monthKey })
         return uniqueMonths.count >= 3
     }
 
-    /// Повертає кількість місяців з даними
+    /// Returns the number of unique months with expense data
+    /// - Returns: Count of unique months that have expense transactions
     func getMonthsOfDataCount() -> Int {
         guard case .success(let data) = aggregateMonthlyExpenses() else {
             return 0
@@ -159,7 +187,8 @@ final class ExpenseDataAggregator {
         return uniqueMonths.count
     }
 
-    /// Перевіряє чи є хоч якісь дані
+    /// Checks if there's any expense data available
+    /// - Returns: True if at least one month of expense data exists, false otherwise
     func hasAnyData() -> Bool {
         return getMonthsOfDataCount() > 0
     }
@@ -174,7 +203,7 @@ final class ExpenseDataAggregator {
     ) -> Double {
         var amounts: [Double] = []
 
-        // Генеруємо останні 3 місяці (не включаючи поточний)
+        // Generate last 3 months (not including current)
         for i in 1...3 {
             var targetMonth = currentMonth - i
             var targetYear = currentYear

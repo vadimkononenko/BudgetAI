@@ -2,24 +2,29 @@
 //  MLTransactionCategorizationService.swift
 //  BudgetAI
 //
-//  Created by AI on 21.10.2025.
+//  Created by Vadim Kononenko on 21.10.2025.
 //
 
 import Foundation
 import CoreML
 
-/// Реалізація сервісу категоризації транзакцій з використанням CoreML
+/// Implementation of transaction categorization service using CoreML
+/// This service uses a trained machine learning model to predict transaction categories based on descriptions
 class MLTransactionCategorizationService: TransactionCategorizationService {
 
     // MARK: - Properties
 
+    /// The CoreML transaction category classifier model
     let model: TransactionCategoryClassifier
+
+    /// Minimum confidence threshold for accepting predictions (0-1)
     private let minimumConfidence: Double
 
     // MARK: - Initialization
 
-    /// Ініціалізує сервіс з ML моделлю
-    /// - Parameter minimumConfidence: Мінімальний рівень впевненості для прийняття прогнозу (0-1). За замовчуванням 0.5
+    /// Initializes the service with ML model
+    /// - Parameter minimumConfidence: Minimum confidence level to accept prediction (0-1). Default is 0.5
+    /// - Throws: Error if the ML model fails to load
     init(minimumConfidence: Double = 0.5) throws {
         self.model = try TransactionCategoryClassifier(configuration: MLModelConfiguration())
         self.minimumConfidence = minimumConfidence
@@ -27,6 +32,11 @@ class MLTransactionCategorizationService: TransactionCategorizationService {
 
     // MARK: - TransactionCategorizationService
 
+    /// Predicts transaction category based on description
+    /// - Parameters:
+    ///   - description: Transaction description text
+    ///   - type: Transaction type (expense or income)
+    /// - Returns: Predicted category name or nil if prediction failed
     func predictCategory(for description: String, type: String) -> String? {
         guard !description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             return nil
@@ -42,6 +52,11 @@ class MLTransactionCategorizationService: TransactionCategorizationService {
         }
     }
 
+    /// Predicts transaction category with confidence level
+    /// - Parameters:
+    ///   - description: Transaction description text
+    ///   - type: Transaction type (expense or income)
+    /// - Returns: Tuple containing category name and confidence (0-1), or nil if prediction failed or confidence is below threshold
     func predictCategoryWithConfidence(for description: String, type: String) -> (category: String, confidence: Double)? {
         guard !description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             return nil
@@ -73,10 +88,11 @@ class MLTransactionCategorizationService: TransactionCategorizationService {
 
     // MARK: - Helper Methods
 
-    /// Отримує всі можливі категорії з їх ймовірностями
-    /// - Parameter description: Опис транзакції
-    /// - Parameter type: Тип транзакції (expense або income)
-    /// - Returns: Словник категорій з ймовірностями
+    /// Gets all possible categories with their probabilities
+    /// - Parameters:
+    ///   - description: Transaction description text
+    ///   - type: Transaction type (expense or income). Default is "expense"
+    /// - Returns: Dictionary mapping category names to their probabilities, or nil if prediction failed
     func getAllPredictions(for description: String, type: String = "expense") -> [String: Double]? {
         guard !description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             return nil
@@ -99,12 +115,12 @@ class MLTransactionCategorizationService: TransactionCategorizationService {
         }
     }
 
-    /// Отримує топ N категорій з найвищими ймовірностями
+    /// Gets top N categories with highest probabilities
     /// - Parameters:
-    ///   - description: Опис транзакції
-    ///   - type: Тип транзакції (expense або income)
-    ///   - limit: Кількість категорій для повернення
-    /// - Returns: Масив кортежів (категорія, впевненість) відсортованих за впевненістю
+    ///   - description: Transaction description text
+    ///   - type: Transaction type (expense or income). Default is "expense"
+    ///   - limit: Maximum number of categories to return. Default is 3
+    /// - Returns: Array of tuples (category, confidence) sorted by confidence in descending order, or nil if prediction failed
     func getTopPredictions(for description: String, type: String = "expense", limit: Int = 3) -> [(category: String, confidence: Double)]? {
         guard let allPredictions = getAllPredictions(for: description, type: type) else {
             return nil

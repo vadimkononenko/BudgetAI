@@ -2,33 +2,62 @@
 //  ExpenseForecastService.swift
 //  BudgetAI
 //
-//  Created by Claude on 21.10.2025.
+//  Created by Vadim Kononenko on 21.10.2025.
 //
 
 import Foundation
 import CoreML
 
+/// Represents a forecast for a specific expense category
 struct CategoryForecast {
+    /// Name of the category
     let categoryName: String
+
+    /// Predicted expense amount for the category
     let predictedAmount: Double
-    let confidence: Double // 0.0 - 1.0
+
+    /// Confidence level of the prediction (0.0 - 1.0)
+    let confidence: Double
+
+    /// Historical average expense for this category
     let historicalAverage: Double
-    let isBasicForecast: Bool // true якщо використано простий алгоритм (не ML)
+
+    /// Indicates if simple algorithm was used instead of ML model
+    let isBasicForecast: Bool
 }
 
+/// Errors that can occur during expense forecasting
 enum ForecastError: Error {
+    /// Insufficient historical data for forecasting
     case notEnoughData
+
+    /// ML model related error
     case modelError(String)
+
+    /// Error aggregating expense data
     case dataAggregationError
 }
 
+/// Service for forecasting future expenses using machine learning
+/// Uses CoreML model to predict expenses based on historical data, seasonal patterns, and trends
 final class ExpenseForecastService {
 
+    /// Repository for accessing transaction data
     private let transactionRepository: TransactionRepository
+
+    /// Repository for accessing category data
     private let categoryRepository: CategoryRepository
+
+    /// Aggregator for preparing expense data
     private let dataAggregator: ExpenseDataAggregator
+
+    /// CoreML expense forecast model
     private var model: ExpenseForecastModel?
 
+    /// Initializes the expense forecast service
+    /// - Parameters:
+    ///   - transactionRepository: Repository for transaction data access
+    ///   - categoryRepository: Repository for category data access
     init(transactionRepository: TransactionRepository, categoryRepository: CategoryRepository) {
         self.transactionRepository = transactionRepository
         self.categoryRepository = categoryRepository
@@ -37,37 +66,39 @@ final class ExpenseForecastService {
             categoryRepository: categoryRepository
         )
 
-        // Завантажуємо модель
+        // Load the model
         loadModel()
     }
 
     // MARK: - Public Methods
 
-    /// Генерує прогноз витрат на наступний місяць для всіх категорій
+    /// Generates expense forecast for next month for all categories
+    /// - Returns: Result containing array of category forecasts or error
+    /// - Note: Uses ML model if 3+ months of data available, otherwise uses simple averaging
     func generateForecastForNextMonth() -> Result<[CategoryForecast], ForecastError> {
         let monthsCount = dataAggregator.getMonthsOfDataCount()
 
-        // Якщо зовсім немає даних
+        // If there's no data at all
         guard monthsCount > 0 else {
             return .failure(.notEnoughData)
         }
 
-        // Якщо менше 3 місяців - використовуємо простий алгоритм
+        // If less than 3 months - use simple algorithm
         if monthsCount < 3 {
             return generateBasicForecast()
         }
 
-        // Перевіряємо чи модель завантажена
+        // Check if model is loaded
         guard let model = model else {
             return .failure(.modelError("ML model not loaded"))
         }
 
-        // Отримуємо історичні дані
+        // Get historical data
         guard case .success(let historicalData) = dataAggregator.aggregateMonthlyExpenses() else {
             return .failure(.dataAggregationError)
         }
 
-        // Визначаємо наступний місяць
+        // Determine next month
         let calendar = Calendar.current
         guard let nextMonth = calendar.date(byAdding: .month, value: 1, to: Date()) else {
             return .failure(.modelError("Failed to calculate next month"))
@@ -78,13 +109,13 @@ final class ExpenseForecastService {
             return .failure(.modelError("Failed to extract year/month"))
         }
 
-        // Отримуємо унікальні категорії
+        // Get unique categories
         let uniqueCategories = Set(historicalData.map { $0.categoryName })
 
         var forecasts: [CategoryForecast] = []
 
         for categoryName in uniqueCategories {
-            // Розраховуємо середнє за останні 3 місяці для цієї категорії
+            // Calculate average for last 3 months for this category
             let averageLastThreeMonths = calculateAverageLastThreeMonths(
                 categoryName: categoryName,
                 historicalData: historicalData
@@ -92,7 +123,7 @@ final class ExpenseForecastService {
 
             let season = getSeason(month: targetMonth)
 
-            // Генеруємо прогноз за допомогою моделі
+            // Generate forecast using the model
             do {
                 let input = ExpenseForecastModelInput(
                     year: Int64(targetYear),
@@ -105,7 +136,7 @@ final class ExpenseForecastService {
                 let prediction = try model.prediction(input: input)
                 let predictedAmount = prediction.totalAmount
 
-                // Розраховуємо confidence на основі відхилення від історичного середнього
+                // Calculate confidence based on deviation from historical average
                 let confidence = calculateConfidence(
                     predicted: predictedAmount,
                     historical: averageLastThreeMonths
@@ -113,7 +144,7 @@ final class ExpenseForecastService {
 
                 let forecast = CategoryForecast(
                     categoryName: categoryName,
-                    predictedAmount: max(0, predictedAmount), // Не може бути від'ємним
+                    predictedAmount: max(0, predictedAmount), // Cannot be negative
                     confidence: confidence,
                     historicalAverage: averageLastThreeMonths,
                     isBasicForecast: false
@@ -127,13 +158,15 @@ final class ExpenseForecastService {
             }
         }
 
-        // Сортуємо за прогнозованою сумою (від більшої до меншої)
+        // Sort by predicted amount (from highest to lowest)
         forecasts.sort { $0.predictedAmount > $1.predictedAmount }
 
         return .success(forecasts)
     }
 
-    /// Генерує прогноз для конкретної категорії
+    /// Generates forecast for specific category
+    /// - Parameter categoryName: Name of the category to forecast
+    /// - Returns: Result containing category forecast or error
     func generateForecast(for categoryName: String) -> Result<CategoryForecast, ForecastError> {
         let allForecasts = generateForecastForNextMonth()
 
@@ -164,10 +197,10 @@ final class ExpenseForecastService {
         categoryName: String,
         historicalData: [MonthlyExpenseData]
     ) -> Double {
-        // Фільтруємо дані для цієї категорії
+        // Filter data for this category
         let categoryData = historicalData.filter { $0.categoryName == categoryName }
 
-        // Сортуємо за датою (найновіші спочатку)
+        // Sort by date (newest first)
         let sortedData = categoryData.sorted { (data1, data2) -> Bool in
             if data1.year != data2.year {
                 return data1.year > data2.year
@@ -175,7 +208,7 @@ final class ExpenseForecastService {
             return data1.month > data2.month
         }
 
-        // Беремо останні 3 місяці
+        // Take last 3 months
         let lastThree = Array(sortedData.prefix(3))
 
         guard !lastThree.isEmpty else { return 0.0 }
@@ -197,20 +230,20 @@ final class ExpenseForecastService {
     private func calculateConfidence(predicted: Double, historical: Double) -> Double {
         guard historical > 0 else { return 0.5 }
 
-        // Чим менше відхилення від історичного середнього, тим вища впевненість
+        // The smaller the deviation from historical average, the higher the confidence
         let deviation = abs(predicted - historical) / historical
 
-        // Конвертуємо девіацію в confidence (0.0 - 1.0)
-        // 0% відхилення = 1.0 confidence
-        // 50%+ відхилення = 0.5 confidence
+        // Convert deviation to confidence (0.0 - 1.0)
+        // 0% deviation = 1.0 confidence
+        // 50%+ deviation = 0.5 confidence
         let confidence = max(0.5, 1.0 - (deviation * 0.5))
 
         return confidence
     }
 
-    /// Генерує базовий прогноз на основі простого середнього (для користувачів з 1-2 місяцями даних)
+    /// Generates basic forecast based on simple average (for users with 1-2 months of data)
     private func generateBasicForecast() -> Result<[CategoryForecast], ForecastError> {
-        // Отримуємо історичні дані
+        // Get historical data
         guard case .success(let historicalData) = dataAggregator.aggregateMonthlyExpenses() else {
             return .failure(.dataAggregationError)
         }
@@ -219,28 +252,28 @@ final class ExpenseForecastService {
             return .failure(.notEnoughData)
         }
 
-        // Отримуємо унікальні категорії
+        // Get unique categories
         let uniqueCategories = Set(historicalData.map { $0.categoryName })
 
         var forecasts: [CategoryForecast] = []
 
         for categoryName in uniqueCategories {
-            // Фільтруємо дані для цієї категорії
+            // Filter data for this category
             let categoryData = historicalData.filter { $0.categoryName == categoryName }
 
             guard !categoryData.isEmpty else { continue }
 
-            // Розраховуємо просте середнє всіх наявних місяців
+            // Calculate simple average of all available months
             let average = categoryData.reduce(0.0) { $0 + $1.totalAmount } / Double(categoryData.count)
 
-            // Для базового прогнозу впевненість залежить від кількості місяців
+            // For basic forecast, confidence depends on number of months
             let monthsCount = dataAggregator.getMonthsOfDataCount()
             let baseConfidence: Double
             switch monthsCount {
             case 1:
-                baseConfidence = 0.3 // Низька впевненість - тільки 1 місяць
+                baseConfidence = 0.3 // Low confidence - only 1 month
             case 2:
-                baseConfidence = 0.5 // Середня впевненість - 2 місяці
+                baseConfidence = 0.5 // Medium confidence - 2 months
             default:
                 baseConfidence = 0.6
             }
@@ -256,7 +289,7 @@ final class ExpenseForecastService {
             forecasts.append(forecast)
         }
 
-        // Сортуємо за прогнозованою сумою
+        // Sort by predicted amount
         forecasts.sort { $0.predictedAmount > $1.predictedAmount }
 
         return .success(forecasts)

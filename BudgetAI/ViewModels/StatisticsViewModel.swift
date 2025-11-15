@@ -8,337 +8,260 @@
 import Foundation
 import UIKit
 
+/// View model for managing statistics screen data and business logic
 final class StatisticsViewModel {
+
+    // MARK: - Type Aliases
+
+    typealias PeriodFilter = DateRangeCalculator.PeriodFilter
+    typealias PeriodMenuItem = DateRangeCalculator.PeriodMenuItem
+    typealias DailyExpense = ChartDataFormatter.DailyExpense
+    typealias MonthlyData = ChartDataFormatter.MonthlyData
 
     // MARK: - Properties
 
     private let transactionRepository: TransactionRepository
     private let categoryRepository: CategoryRepository
+    private let dateRangeCalculator: DateRangeCalculator
+    private let categoryStatsCalculator: CategoryStatsCalculator
+    private let chartDataFormatter: ChartDataFormatter
 
-    enum PeriodFilter: Equatable {
-        case currentMonth
-        case specificMonth(month: Int16, year: Int16)
-        case currentYear
-        case allTime
-    }
-
-    struct PeriodMenuItem {
-        let title: String
-        let period: PeriodFilter
-        let isSelected: Bool
-    }
-
+    /// Currently selected period filter
     var selectedPeriod: PeriodFilter = .currentMonth
+
+    /// Set of selected category names for filtering (empty means all categories)
+    var selectedCategories: Set<String> = []
+
+    /// Total income for the selected period
     var totalIncome: Double = 0
+
+    /// Total expenses for the selected period
     var totalExpenses: Double = 0
+
+    /// Balance (income - expenses) for the selected period
     var balance: Double = 0
+
+    /// Top 5 category statistics
     var topCategoryStats: [CategoryStatDisplayModel] = []
+
+    /// All category statistics
     var allCategoryStats: [CategoryStatDisplayModel] = []
+
+    /// Available months with transactions
     var availableMonths: [(month: Int16, year: Int16)] = []
 
+    // MARK: - Callbacks
+
+    /// Callback triggered when data is updated
     var onDataUpdated: (() -> Void)?
+
+    /// Callback triggered when an error occurs
     var onError: ((Error) -> Void)?
+
+    /// Callback triggered when loading state changes
     var onLoading: ((Bool) -> Void)?
 
     // MARK: - Initialization
 
+    /// Initializes the statistics view model with required dependencies
+    /// - Parameters:
+    ///   - transactionRepository: Repository for managing transactions
+    ///   - categoryRepository: Repository for managing categories
     init(transactionRepository: TransactionRepository, categoryRepository: CategoryRepository) {
         self.transactionRepository = transactionRepository
         self.categoryRepository = categoryRepository
+        self.dateRangeCalculator = DateRangeCalculator(transactionRepository: transactionRepository)
+        self.categoryStatsCalculator = CategoryStatsCalculator(transactionRepository: transactionRepository)
+        self.chartDataFormatter = ChartDataFormatter(transactionRepository: transactionRepository)
     }
 
-    // MARK: - Public Methods
+    // MARK: - Public Methods - Data Loading
 
+    /// Loads all available months from transactions
     func loadAvailableMonths() {
-        let result = transactionRepository.fetchAllTransactions()
+        availableMonths = dateRangeCalculator.loadAvailableMonths()
+    }
 
-        switch result {
-        case .success(let transactions):
-            let calendar = Calendar.current
-            var monthYearSet: Set<String> = []
-            var monthsArray: [(month: Int16, year: Int16)] = []
+    /// Fetches statistics data for the selected period
+    func fetchData() {
+        onLoading?(true)
 
-            for transaction in transactions {
-                let components = calendar.dateComponents([.month, .year], from: transaction.date ?? Date())
-                let month = Int16(components.month ?? 1)
-                let year = Int16(components.year ?? 2025)
-                let key = "\(year)-\(month)"
+        let (startDate, endDate) = dateRangeCalculator.getDateRangeForPeriod(selectedPeriod)
 
-                if !monthYearSet.contains(key) {
-                    monthYearSet.insert(key)
-                    monthsArray.append((month: month, year: year))
-                }
-            }
+        let totalsResult = categoryStatsCalculator.calculateTotals(from: startDate, to: endDate)
 
-            availableMonths = monthsArray.sorted { first, second in
-                if first.year != second.year {
-                    return first.year > second.year
-                }
-                return first.month > second.month
-            }
+        onLoading?(false)
+
+        switch totalsResult {
+        case .success(let totals):
+            totalIncome = totals.income
+            totalExpenses = totals.expenses
+            balance = totals.income - totals.expenses
+
+            loadCategoryStats(from: startDate, to: endDate)
+            onDataUpdated?()
 
         case .failure(let error):
             onError?(error)
         }
     }
 
-    func fetchData() {
-        onLoading?(true)
+    // MARK: - Public Methods - Period Management
 
-        let (startDate, endDate) = getDateRangeForPeriod()
-
-        let incomeResult = transactionRepository.calculateTotalIncome(from: startDate, to: endDate)
-        let expensesResult = transactionRepository.calculateTotalExpenses(from: startDate, to: endDate)
-
-        onLoading?(false)
-
-        switch (incomeResult, expensesResult) {
-        case (.success(let income), .success(let expenses)):
-            totalIncome = income
-            totalExpenses = expenses
-            balance = income - expenses
-
-            calculateCategoryStats(from: startDate, to: endDate)
-            onDataUpdated?()
-
-        case (.failure(let error), _), (_, .failure(let error)):
-            onError?(error)
-        }
-    }
-
+    /// Sets the selected period and refreshes data
+    /// - Parameter period: The period filter to set
     func setPeriod(_ period: PeriodFilter) {
         selectedPeriod = period
         fetchData()
     }
 
+    /// Gets the localized title for the current period
+    /// - Returns: Localized period title string
     func getPeriodTitle() -> String {
-        switch selectedPeriod {
-        case .currentMonth:
-            return "Поточний місяць"
-        case .specificMonth(let month, let year):
-            let calendar = Calendar.current
-            var components = DateComponents()
-            components.year = Int(year)
-            components.month = Int(month)
-
-            guard let date = calendar.date(from: components) else {
-                return "Невідомий період"
-            }
-
-            return DateFormatter.monthYear.string(from: date).capitalized
-        case .currentYear:
-            return "Поточний рік"
-        case .allTime:
-            return "За весь час"
-        }
+        return dateRangeCalculator.getPeriodTitle(for: selectedPeriod)
     }
 
+    /// Gets the date range for the current period
+    /// - Returns: Tuple containing start and end dates
+    func getDateRange() -> (startDate: Date, endDate: Date) {
+        return dateRangeCalculator.getDateRange(for: selectedPeriod)
+    }
+
+    /// Gets menu items for period selection
+    /// - Returns: Array of period menu items
+    func getPeriodMenuItems() -> [PeriodMenuItem] {
+        return dateRangeCalculator.getPeriodMenuItems(
+            availableMonths: availableMonths,
+            selectedPeriod: selectedPeriod
+        )
+    }
+
+    // MARK: - Public Methods - Formatting
+
+    /// Gets formatted income string
+    /// - Returns: Formatted currency string for total income
     func getFormattedIncome() -> String {
         return CurrencyFormatter.shared.format(totalIncome)
     }
 
+    /// Gets formatted expenses string
+    /// - Returns: Formatted currency string for total expenses
     func getFormattedExpenses() -> String {
         return CurrencyFormatter.shared.format(totalExpenses)
     }
 
+    /// Gets formatted balance string
+    /// - Returns: Formatted currency string for balance
     func getFormattedBalance() -> String {
         return CurrencyFormatter.shared.format(balance)
     }
 
-    func hasMoreThan5Categories() -> Bool {
-        return allCategoryStats.count > 5
-    }
-
-    func hasData() -> Bool {
-        return totalIncome > 0 || totalExpenses > 0
-    }
-
+    /// Gets color for balance display
+    /// - Returns: Green for positive/zero balance, red for negative
     func getBalanceColor() -> UIColor {
         return balance >= 0 ? .systemGreen : .systemRed
     }
 
+    // MARK: - Public Methods - Category Statistics
+
+    /// Checks if there are more than 5 categories
+    /// - Returns: True if there are more than 5 categories
+    func hasMoreThan5Categories() -> Bool {
+        return allCategoryStats.count > 5
+    }
+
+    /// Checks if there is any data to display
+    /// - Returns: True if there is income or expenses
+    func hasData() -> Bool {
+        return totalIncome > 0 || totalExpenses > 0
+    }
+
+    /// Gets category at the specified index
+    /// - Parameter index: Index in the top category stats array
+    /// - Returns: Category object or nil if index is out of bounds
     func getCategory(at index: Int) -> Category? {
         guard index < topCategoryStats.count else { return nil }
         return topCategoryStats[index].category
     }
 
-    func getDateRange() -> (startDate: Date, endDate: Date) {
-        let calendar = Calendar.current
-
-        switch selectedPeriod {
-        case .currentMonth:
-            let components = calendar.dateComponents([.year, .month], from: Date())
-            if let startOfMonth = calendar.date(from: components),
-               let endOfMonth = calendar.date(byAdding: DateComponents(month: 1, day: -1), to: startOfMonth) {
-                return (startOfMonth, endOfMonth)
-            }
-
-        case .specificMonth(let month, let year):
-            var components = DateComponents()
-            components.year = Int(year)
-            components.month = Int(month)
-
-            if let startOfMonth = calendar.date(from: components),
-               let endOfMonth = calendar.date(byAdding: DateComponents(month: 1, day: -1), to: startOfMonth) {
-                return (startOfMonth, endOfMonth)
-            }
-
-        case .currentYear:
-            let components = calendar.dateComponents([.year], from: Date())
-            if let startOfYear = calendar.date(from: components) {
-                let endOfYear = calendar.date(byAdding: DateComponents(year: 1, day: -1), to: startOfYear) ?? Date()
-                return (startOfYear, endOfYear)
-            }
-
-        case .allTime:
-            // Get the earliest and latest transaction dates
-            let result = transactionRepository.fetchAllTransactions()
-
-            switch result {
-            case .success(let transactions):
-                if let earliest = transactions.min(by: { $0.date ?? Date() < $1.date ?? Date() })?.date,
-                   let latest = transactions.max(by: { $0.date ?? Date() < $1.date ?? Date() })?.date {
-                    return (earliest, latest)
-                }
-            case .failure:
-                break
-            }
-        }
-
-        // Fallback to current month
-        let components = calendar.dateComponents([.year, .month], from: Date())
-        if let startOfMonth = calendar.date(from: components),
-           let endOfMonth = calendar.date(byAdding: DateComponents(month: 1, day: -1), to: startOfMonth) {
-            return (startOfMonth, endOfMonth)
-        }
-
-        // Final fallback
-        return (Date(), Date())
+    /// Gets filtered category statistics
+    /// - Returns: Array of category statistics filtered by selected categories
+    func getFilteredCategoryStats() -> [CategoryStatDisplayModel] {
+        return categoryStatsCalculator.getFilteredCategoryStats(
+            from: allCategoryStats,
+            selectedCategories: selectedCategories
+        )
     }
 
-    func getPeriodMenuItems() -> [PeriodMenuItem] {
-        var menuItems: [PeriodMenuItem] = []
+    /// Gets all category names
+    /// - Returns: Array of all category names
+    func getAllCategories() -> [String] {
+        return categoryStatsCalculator.getAllCategoryNames(from: allCategoryStats)
+    }
 
-        // Current month
-        menuItems.append(PeriodMenuItem(
-            title: "Поточний місяць",
-            period: .currentMonth,
-            isSelected: selectedPeriod == .currentMonth
-        ))
+    // MARK: - Public Methods - Category Filtering
 
-        // Specific months
-        for monthYear in availableMonths {
-            let calendar = Calendar.current
-            var components = DateComponents()
-            components.year = Int(monthYear.year)
-            components.month = Int(monthYear.month)
+    /// Toggles category filter selection
+    /// - Parameter categoryName: Name of the category to toggle
+    func toggleCategoryFilter(_ categoryName: String) {
+        selectedCategories = categoryStatsCalculator.toggleCategoryFilter(
+            categoryName,
+            in: selectedCategories
+        )
+        onDataUpdated?()
+    }
 
-            guard let date = calendar.date(from: components) else { continue }
+    /// Clears all category filters
+    func clearCategoryFilter() {
+        selectedCategories.removeAll()
+        onDataUpdated?()
+    }
 
-            let dateFormatter = DateFormatter()
-            dateFormatter.locale = Locale(identifier: "uk_UA")
-            dateFormatter.dateFormat = "LLLL yyyy"
-            let title = dateFormatter.string(from: date).capitalized
+    /// Checks if a category is selected
+    /// - Parameter categoryName: Name of the category to check
+    /// - Returns: True if category is selected or no filters are applied
+    func isCategorySelected(_ categoryName: String) -> Bool {
+        return categoryStatsCalculator.isCategorySelected(categoryName, in: selectedCategories)
+    }
 
-            var isSelected = false
-            if case .specificMonth(let month, let year) = selectedPeriod {
-                isSelected = (month == monthYear.month && year == monthYear.year)
-            }
+    // MARK: - Public Methods - Chart Data
 
-            menuItems.append(PeriodMenuItem(
-                title: title,
-                period: .specificMonth(month: monthYear.month, year: monthYear.year),
-                isSelected: isSelected
-            ))
-        }
+    /// Gets daily expense data for charts
+    /// - Returns: Array of daily expense data sorted by date
+    func getDailyExpenses() -> [DailyExpense] {
+        let (startDate, endDate) = dateRangeCalculator.getDateRangeForPeriod(selectedPeriod)
 
-        // Current year
-        menuItems.append(PeriodMenuItem(
-            title: "Поточний рік",
-            period: .currentYear,
-            isSelected: selectedPeriod == .currentYear
-        ))
+        return chartDataFormatter.getDailyExpenses(
+            for: selectedPeriod,
+            startDate: startDate,
+            endDate: endDate,
+            selectedCategories: selectedCategories
+        )
+    }
 
-        // All time
-        menuItems.append(PeriodMenuItem(
-            title: "За весь час",
-            period: .allTime,
-            isSelected: selectedPeriod == .allTime
-        ))
-
-        return menuItems
+    /// Gets monthly comparison data for charts
+    /// - Returns: Array of monthly data sorted by date
+    func getMonthlyComparisonData() -> [MonthlyData] {
+        return chartDataFormatter.getMonthlyComparisonData(selectedCategories: selectedCategories)
     }
 
     // MARK: - Private Methods
 
-    private func getDateRangeForPeriod() -> (Date?, Date?) {
-        let calendar = Calendar.current
+    /// Loads category statistics for the specified period
+    /// - Parameters:
+    ///   - startDate: Start date of the period (optional)
+    ///   - endDate: End date of the period (optional)
+    private func loadCategoryStats(from startDate: Date?, to endDate: Date?) {
+        let statsResult = categoryStatsCalculator.calculateCategoryStats(
+            from: startDate,
+            to: endDate,
+            totalExpenses: totalExpenses
+        )
 
-        switch selectedPeriod {
-        case .currentMonth:
-            let components = calendar.dateComponents([.year, .month], from: Date())
-            guard let startOfMonth = calendar.date(from: components) else {
-                return (nil, nil)
-            }
-            return (startOfMonth, nil)
-
-        case .specificMonth(let month, let year):
-            var components = DateComponents()
-            components.year = Int(year)
-            components.month = Int(month)
-
-            guard let startOfMonth = calendar.date(from: components),
-                  let endOfMonth = calendar.date(byAdding: DateComponents(month: 1, day: -1), to: startOfMonth) else {
-                return (nil, nil)
-            }
-            return (startOfMonth, endOfMonth)
-
-        case .currentYear:
-            let components = calendar.dateComponents([.year], from: Date())
-            guard let startOfYear = calendar.date(from: components) else {
-                return (nil, nil)
-            }
-            return (startOfYear, nil)
-
-        case .allTime:
-            return (nil, nil)
-        }
-    }
-
-    private func calculateCategoryStats(from startDate: Date?, to endDate: Date?) {
-        let transactionsResult: Result<[Transaction], CoreDataError>
-
-        if let startDate = startDate, let endDate = endDate {
-            transactionsResult = transactionRepository.fetchTransactions(from: startDate, to: endDate)
-        } else if let startDate = startDate {
-            // From startDate to now
-            transactionsResult = transactionRepository.fetchTransactions(from: startDate, to: Date())
-        } else {
-            transactionsResult = transactionRepository.fetchAllTransactions()
-        }
-
-        switch transactionsResult {
-        case .success(let transactions):
-            let expenses = transactions.filter { $0.type == "expense" }
-
-            var categoryAmounts: [String: (category: Category, amount: Double)] = [:]
-
-            for expense in expenses {
-                guard let category = expense.category else { continue }
-                let categoryName = category.name ?? ""
-
-                if let existing = categoryAmounts[categoryName] {
-                    categoryAmounts[categoryName] = (category, existing.amount + expense.amount)
-                } else {
-                    categoryAmounts[categoryName] = (category, expense.amount)
-                }
-            }
-
-            allCategoryStats = Array(categoryAmounts.values)
-                .map { CategoryStatDisplayModel(category: $0.category, amount: $0.amount, totalExpenses: totalExpenses) }
-                .sorted { $0.amountRaw > $1.amountRaw }
-
-            topCategoryStats = Array(allCategoryStats.prefix(5))
+        switch statsResult {
+        case .success(let stats):
+            allCategoryStats = stats
+            topCategoryStats = categoryStatsCalculator.getTopCategories(from: stats, limit: 5)
 
         case .failure(let error):
             onError?(error)

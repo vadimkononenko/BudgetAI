@@ -72,7 +72,7 @@ final class DataProgressView: UIView {
         label.textColor = .systemOrange
         label.textAlignment = .center
         label.numberOfLines = 0
-        label.text = "⚠️ Використовується спрощений алгоритм прогнозування"
+        label.text = L10n.Forecast.usingSimplified
         label.isHidden = true
         return label
     }()
@@ -163,23 +163,23 @@ final class DataProgressView: UIView {
 
         // Update title
         if currentMonths == 0 {
-            titleLabel.text = "Почніть додавати транзакції"
-            descriptionLabel.text = "Для точного прогнозування потрібно мінімум \(requiredMonths) місяці історії витрат"
+            titleLabel.text = L10n.Forecast.startAddingTransactions
+            descriptionLabel.text = String(format: L10n.Forecast.minMonthsRequired, requiredMonths)
             iconLabel.text = "📝"
         } else if currentMonths < requiredMonths {
-            titleLabel.text = "Збираємо дані для прогнозування"
+            titleLabel.text = L10n.Forecast.collectingData
             let remaining = requiredMonths - currentMonths
-            let monthWord = remaining == 1 ? "місяць" : "місяці"
-            descriptionLabel.text = "Ще \(remaining) \(monthWord) до точного AI прогнозу"
+            let monthWord = L10n.monthWord(for: remaining)
+            descriptionLabel.text = String(format: L10n.Forecast.monthsRemaining, remaining, monthWord)
             iconLabel.text = "📊"
         } else {
-            titleLabel.text = "Достатньо даних!"
-            descriptionLabel.text = "Використовується ML модель для точного прогнозування"
+            titleLabel.text = L10n.Forecast.enoughData
+            descriptionLabel.text = L10n.Forecast.usingMLModel
             iconLabel.text = "✅"
         }
 
         // Update progress
-        progressLabel.text = "\(currentMonths) з \(requiredMonths) місяців"
+        progressLabel.text = String(format: L10n.Forecast.monthsProgress, currentMonths, requiredMonths)
 
         // Animate progress bar
         layoutIfNeeded()
