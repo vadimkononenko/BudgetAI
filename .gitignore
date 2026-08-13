@@ -93,18 +93,5 @@ iOSInjectionProject/
 # macOS
 .DS_Store
 
-# Training data and models (generated files)
-expense_training_data.csv
-transaction_classifier_training.csv
-transaction_training_data_rich.csv
-*.mlmodel
-!BudgetAI/Models/MLModels/*.mlmodel
-!BudgetAI/ML/*.mlmodel
-
-# Training scripts
-generate_training_data.swift
-train_model_v2.swift
-generate_classifier_data.swift
-train_classifier.swift
-generate_rich_dataset.py
-train_rich.swift
+# Core ML
+*.mlmodelc

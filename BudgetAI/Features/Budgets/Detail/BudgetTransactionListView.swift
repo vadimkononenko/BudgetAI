@@ -1,5 +1,5 @@
 //
-//  TransactionListView.swift
+//  BudgetTransactionListView.swift
 //  BudgetAI
 //
 //  Created by Vadim Kononenko on 18.10.2025.
@@ -9,20 +9,20 @@ import UIKit
 import SnapKit
 
 /// Delegate protocol for transaction list interactions
-protocol TransactionListViewDelegate: AnyObject {
+protocol BudgetTransactionListViewDelegate: AnyObject {
     /// Called when a transaction is selected
-    func transactionListView(_ view: TransactionListView, didSelectTransaction: Transaction)
+    func transactionListView(_ view: BudgetTransactionListView, didSelectTransaction: Transaction)
 
     /// Called when a transaction is deleted
-    func transactionListView(_ view: TransactionListView, didDeleteTransaction: Transaction)
+    func transactionListView(_ view: BudgetTransactionListView, didDeleteTransaction: Transaction)
 }
 
 /// View displaying a grouped list of transactions with swipe-to-delete functionality
-final class TransactionListView: UIView {
+final class BudgetTransactionListView: UIView {
 
     // MARK: - Properties
 
-    weak var delegate: TransactionListViewDelegate?
+    weak var delegate: BudgetTransactionListViewDelegate?
     private var groupedTransactions: [(date: Date, transactions: [Transaction])] = []
     private var isCurrentMonth: Bool = false
     private var tableViewBottomConstraint: Constraint?
@@ -43,7 +43,7 @@ final class TransactionListView: UIView {
         tableView.separatorStyle = .none
         tableView.showsVerticalScrollIndicator = false
         tableView.isScrollEnabled = false
-        tableView.register(TransactionDetailCell.self, forCellReuseIdentifier: TransactionDetailCell.reuseIdentifier)
+        tableView.register(BudgetTransactionCell.self, forCellReuseIdentifier: BudgetTransactionCell.reuseIdentifier)
         tableView.dataSource = self
         tableView.delegate = self
         return tableView
@@ -192,7 +192,7 @@ final class TransactionListView: UIView {
 
 // MARK: - UITableViewDataSource
 
-extension TransactionListView: UITableViewDataSource {
+extension BudgetTransactionListView: UITableViewDataSource {
 
     func numberOfSections(in tableView: UITableView) -> Int {
         return groupedTransactions.count
@@ -204,9 +204,9 @@ extension TransactionListView: UITableViewDataSource {
 
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         guard let cell = tableView.dequeueReusableCell(
-            withIdentifier: TransactionDetailCell.reuseIdentifier,
+            withIdentifier: BudgetTransactionCell.reuseIdentifier,
             for: indexPath
-        ) as? TransactionDetailCell else {
+        ) as? BudgetTransactionCell else {
             return UITableViewCell()
         }
 
@@ -226,7 +226,7 @@ extension TransactionListView: UITableViewDataSource {
 
 // MARK: - UITableViewDelegate
 
-extension TransactionListView: UITableViewDelegate {
+extension BudgetTransactionListView: UITableViewDelegate {
 
     func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
         return 70

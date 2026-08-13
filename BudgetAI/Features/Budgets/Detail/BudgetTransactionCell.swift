@@ -1,5 +1,5 @@
 //
-//  TransactionDetailCell.swift
+//  BudgetTransactionCell.swift
 //  BudgetAI
 //
 //  Created by Vadim Kononenko on 18.10.2025.
@@ -9,9 +9,9 @@ import UIKit
 import SnapKit
 
 /// Custom table view cell for displaying transaction details in budget detail view
-final class TransactionDetailCell: UITableViewCell {
+final class BudgetTransactionCell: UITableViewCell {
 
-    static let reuseIdentifier = "TransactionDetailCell"
+    static let reuseIdentifier = "BudgetTransactionCell"
 
     // MARK: - UI Components
 
