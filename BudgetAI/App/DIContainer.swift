@@ -57,6 +57,12 @@ final class DIContainer {
         )
     }()
 
+    // MARK: - Seeders
+
+    func makeCategorySeeder() -> DefaultCategorySeeder {
+        DefaultCategorySeeder(repository: categoryRepository)
+    }
+
     // MARK: - ViewModels Factory
 
     func makeBudgetViewModel() -> BudgetViewModel {
