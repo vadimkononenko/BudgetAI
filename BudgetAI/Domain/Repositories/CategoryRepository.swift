@@ -7,8 +7,6 @@
 
 import Foundation
 
-// MARK: - Category Repository Protocol
-
 protocol CategoryRepository {
     func fetchAllCategories() -> Result<[Category], CoreDataError>
     func fetchCategories(type: String) -> Result<[Category], CoreDataError>

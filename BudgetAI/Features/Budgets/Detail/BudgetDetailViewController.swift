@@ -62,8 +62,8 @@ final class BudgetDetailViewController: UIViewController {
         return view
     }()
 
-    private lazy var transactionListView: TransactionListView = {
-        let view = TransactionListView()
+    private lazy var transactionListView: BudgetTransactionListView = {
+        let view = BudgetTransactionListView()
         view.delegate = self
         return view
     }()
@@ -379,15 +379,15 @@ final class BudgetDetailViewController: UIViewController {
     }
 }
 
-// MARK: - TransactionListViewDelegate
+// MARK: - BudgetTransactionListViewDelegate
 
-extension BudgetDetailViewController: TransactionListViewDelegate {
+extension BudgetDetailViewController: BudgetTransactionListViewDelegate {
 
-    func transactionListView(_ view: TransactionListView, didSelectTransaction transaction: Transaction) {
+    func transactionListView(_ view: BudgetTransactionListView, didSelectTransaction transaction: Transaction) {
         // Optional: Handle transaction selection if needed
     }
 
-    func transactionListView(_ view: TransactionListView, didDeleteTransaction transaction: Transaction) {
+    func transactionListView(_ view: BudgetTransactionListView, didDeleteTransaction transaction: Transaction) {
         NotificationCenter.default.post(name: .transactionDidDelete, object: nil)
     }
 }

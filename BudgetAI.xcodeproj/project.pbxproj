@@ -18,10 +18,7 @@
 		A705424F2EA0CC53007F844F /* Exceptions for "BudgetAI" folder in "BudgetAI" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				Info.plist,
-				MLTraining/generate_rich_dataset.py,
-				MLTraining/train_rich.swift,
-				MLTraining/transaction_training_data_rich.csv,
+				Resources/Info.plist,
 			);
 			target = A70542392EA0CC52007F844F /* BudgetAI */;
 		};
@@ -159,7 +156,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 43X8U5HZ8Y;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = BudgetAI/Info.plist;
+				INFOPLIST_FILE = BudgetAI/Resources/Info.plist;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
@@ -189,7 +186,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 43X8U5HZ8Y;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = BudgetAI/Info.plist;
+				INFOPLIST_FILE = BudgetAI/Resources/Info.plist;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;

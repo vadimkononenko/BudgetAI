@@ -7,8 +7,6 @@
 
 import Foundation
 
-// MARK: - Transaction Repository Protocol
-
 protocol TransactionRepository {
     func fetchAllTransactions() -> Result<[Transaction], CoreDataError>
     func fetchTransactions(type: String?, category: Category?) -> Result<[Transaction], CoreDataError>
