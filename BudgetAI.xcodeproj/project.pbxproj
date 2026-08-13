@@ -22,7 +22,6 @@
 				MLTraining/generate_rich_dataset.py,
 				MLTraining/train_rich.swift,
 				MLTraining/transaction_training_data_rich.csv,
-				MLTraining/README.md,
 			);
 			target = A70542392EA0CC52007F844F /* BudgetAI */;
 		};

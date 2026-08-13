@@ -111,6 +111,7 @@ final class AddTransactionViewController: UIViewController {
         setupNavigationBar()
         loadCategories()
         updateCategoryMenu()
+        setupKeyboardDismissal()
     }
 
     // MARK: - Setup
@@ -159,6 +160,17 @@ final class AddTransactionViewController: UIViewController {
             target: self,
             action: #selector(cancelButtonTapped)
         )
+    }
+
+    private func setupKeyboardDismissal() {
+        let tap = UITapGestureRecognizer(target: self, action: #selector(dismissKeyboard))
+        // This ensures the tap doesn't interfere with button clicks or table cells
+        tap.cancelsTouchesInView = false
+        view.addGestureRecognizer(tap)
+    }
+
+    @objc func dismissKeyboard() {
+        view.endEditing(true)
     }
 
     // MARK: - Data Management

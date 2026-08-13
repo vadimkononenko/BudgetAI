@@ -113,6 +113,7 @@ final class AddBudgetViewController: UIViewController {
         setupCurrentMonthYear()
         fetchCategories()
         updateCategoryMenu()
+        setupKeyboardDismissal()
     }
 
     // MARK: - Setup
@@ -241,6 +242,17 @@ final class AddBudgetViewController: UIViewController {
     }
 
     // MARK: - Actions
+
+    private func setupKeyboardDismissal() {
+        let tap = UITapGestureRecognizer(target: self, action: #selector(dismissKeyboard))
+        // This ensures the tap doesn't interfere with button clicks or table cells
+        tap.cancelsTouchesInView = false
+        view.addGestureRecognizer(tap)
+    }
+
+    @objc func dismissKeyboard() {
+        view.endEditing(true)
+    }
 
     @objc private func typeChanged() {
         selectedType = typeSegmentedControl.selectedSegmentIndex == 0 ? "expense" : "income"
