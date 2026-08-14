@@ -8,8 +8,8 @@
 import Foundation
 
 protocol CategoryRepository {
-    func fetchAllCategories() -> Result<[Category], CoreDataError>
-    func fetchCategories(type: String) -> Result<[Category], CoreDataError>
-    func createCategory(name: String, colorHex: String, icon: String, type: String) -> Result<Category, CoreDataError>
-    func deleteCategory(_ category: Category) -> Result<Void, CoreDataError>
+    func fetchAllCategories() -> Result<[Category], RepositoryError>
+    func fetchCategories(type: String) -> Result<[Category], RepositoryError>
+    func createCategory(name: String, colorHex: String, icon: String, type: String) -> Result<Category, RepositoryError>
+    func deleteCategory(_ category: Category) -> Result<Void, RepositoryError>
 }

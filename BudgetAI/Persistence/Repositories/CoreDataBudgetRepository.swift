@@ -16,12 +16,12 @@ final class CoreDataBudgetRepository: BudgetRepository {
         self.coreDataManager = coreDataManager
     }
 
-    func fetchBudgets(month: Int16, year: Int16) -> Result<[Budget], CoreDataError> {
+    func fetchBudgets(month: Int16, year: Int16) -> Result<[Budget], RepositoryError> {
         let predicate = NSPredicate(format: "month == %d AND year == %d AND isActive == YES", month, year)
         return coreDataManager.fetch(Budget.self, predicate: predicate)
     }
 
-    func createBudget(amount: Double, month: Int16, year: Int16, category: Category) -> Result<Budget, CoreDataError> {
+    func createBudget(amount: Double, month: Int16, year: Int16, category: Category) -> Result<Budget, RepositoryError> {
         let budget = coreDataManager.create(Budget.self)
         budget.id = UUID()
         budget.amount = amount
@@ -33,11 +33,11 @@ final class CoreDataBudgetRepository: BudgetRepository {
         return coreDataManager.saveContext().map { budget }
     }
 
-    func deleteBudget(_ budget: Budget) -> Result<Void, CoreDataError> {
+    func deleteBudget(_ budget: Budget) -> Result<Void, RepositoryError> {
         return coreDataManager.delete(budget)
     }
 
-    func fetchBudgetWithSpending(for category: Category, month: Int16, year: Int16) -> Result<BudgetWithSpending, CoreDataError> {
+    func fetchBudgetWithSpending(for category: Category, month: Int16, year: Int16) -> Result<BudgetWithSpending, RepositoryError> {
         let budgetPredicate = NSPredicate(format: "category == %@ AND month == %d AND year == %d", category, month, year)
         let budgetResult = coreDataManager.fetch(Budget.self, predicate: budgetPredicate)
 
@@ -77,7 +77,7 @@ final class CoreDataBudgetRepository: BudgetRepository {
         }
     }
 
-    func fetchAllBudgetsWithSpending(month: Int16, year: Int16) -> Result<[BudgetWithSpending], CoreDataError> {
+    func fetchAllBudgetsWithSpending(month: Int16, year: Int16) -> Result<[BudgetWithSpending], RepositoryError> {
         let budgetResult = fetchBudgets(month: month, year: year)
 
         switch budgetResult {

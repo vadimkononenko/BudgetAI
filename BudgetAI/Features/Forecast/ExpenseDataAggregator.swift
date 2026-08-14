@@ -58,7 +58,7 @@ final class ExpenseDataAggregator {
     /// Aggregates historical expense data by months and categories
     /// Calculates total amounts, 3-month averages, and seasonal data for ML model training
     /// - Returns: Result containing array of monthly expense data or error
-    func aggregateMonthlyExpenses() -> Result<[MonthlyExpenseData], CoreDataError> {
+    func aggregateMonthlyExpenses() -> Result<[MonthlyExpenseData], RepositoryError> {
         // Get all transactions
         guard case .success(let allTransactions) = transactionRepository.fetchAllTransactions() else {
             return .failure(.fetchFailed(NSError(domain: "ExpenseDataAggregator", code: 1, userInfo: nil)))

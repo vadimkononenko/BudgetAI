@@ -16,12 +16,12 @@ final class CoreDataTransactionRepository: TransactionRepository {
         self.coreDataManager = coreDataManager
     }
 
-    func fetchAllTransactions() -> Result<[Transaction], CoreDataError> {
+    func fetchAllTransactions() -> Result<[Transaction], RepositoryError> {
         let sortDescriptors = [NSSortDescriptor(key: "date", ascending: false)]
         return coreDataManager.fetch(Transaction.self, predicate: nil, sortDescriptors: sortDescriptors)
     }
 
-    func fetchTransactions(type: String?, category: Category?) -> Result<[Transaction], CoreDataError> {
+    func fetchTransactions(type: String?, category: Category?) -> Result<[Transaction], RepositoryError> {
         var predicates: [NSPredicate] = []
 
         if let type = type {
@@ -38,21 +38,21 @@ final class CoreDataTransactionRepository: TransactionRepository {
         return coreDataManager.fetch(Transaction.self, predicate: finalPredicate, sortDescriptors: sortDescriptors)
     }
 
-    func fetchTransactions(from startDate: Date, to endDate: Date) -> Result<[Transaction], CoreDataError> {
+    func fetchTransactions(from startDate: Date, to endDate: Date) -> Result<[Transaction], RepositoryError> {
         let predicate = NSPredicate(format: "date >= %@ AND date <= %@", startDate as NSDate, endDate as NSDate)
         let sortDescriptors = [NSSortDescriptor(key: "date", ascending: false)]
 
         return coreDataManager.fetch(Transaction.self, predicate: predicate, sortDescriptors: sortDescriptors)
     }
 
-    func fetchTransactions(category: Category, from startDate: Date, to endDate: Date) -> Result<[Transaction], CoreDataError> {
+    func fetchTransactions(category: Category, from startDate: Date, to endDate: Date) -> Result<[Transaction], RepositoryError> {
         let predicate = NSPredicate(format: "category == %@ AND date >= %@ AND date <= %@", category, startDate as NSDate, endDate as NSDate)
         let sortDescriptors = [NSSortDescriptor(key: "date", ascending: false)]
 
         return coreDataManager.fetch(Transaction.self, predicate: predicate, sortDescriptors: sortDescriptors)
     }
 
-    func createTransaction(amount: Double, type: String, date: Date, description: String?, category: Category) -> Result<Transaction, CoreDataError> {
+    func createTransaction(amount: Double, type: String, date: Date, description: String?, category: Category) -> Result<Transaction, RepositoryError> {
         let transaction = coreDataManager.create(Transaction.self)
         transaction.id = UUID()
         transaction.amount = amount
@@ -65,19 +65,19 @@ final class CoreDataTransactionRepository: TransactionRepository {
         return coreDataManager.saveContext().map { transaction }
     }
 
-    func deleteTransaction(_ transaction: Transaction) -> Result<Void, CoreDataError> {
+    func deleteTransaction(_ transaction: Transaction) -> Result<Void, RepositoryError> {
         return coreDataManager.delete(transaction)
     }
 
-    func calculateTotalIncome(from startDate: Date?, to endDate: Date?) -> Result<Double, CoreDataError> {
+    func calculateTotalIncome(from startDate: Date?, to endDate: Date?) -> Result<Double, RepositoryError> {
         return calculateTotal(type: "income", from: startDate, to: endDate)
     }
 
-    func calculateTotalExpenses(from startDate: Date?, to endDate: Date?) -> Result<Double, CoreDataError> {
+    func calculateTotalExpenses(from startDate: Date?, to endDate: Date?) -> Result<Double, RepositoryError> {
         return calculateTotal(type: "expense", from: startDate, to: endDate)
     }
 
-    func calculateSpending(for category: Category, from startDate: Date, to endDate: Date) -> Result<Double, CoreDataError> {
+    func calculateSpending(for category: Category, from startDate: Date, to endDate: Date) -> Result<Double, RepositoryError> {
         let predicate = NSPredicate(
             format: "category == %@ AND type == %@ AND date >= %@ AND date <= %@",
             category, "expense", startDate as NSDate, endDate as NSDate
@@ -96,7 +96,7 @@ final class CoreDataTransactionRepository: TransactionRepository {
 
     // MARK: - Private Helpers
 
-    private func calculateTotal(type: String, from startDate: Date?, to endDate: Date?) -> Result<Double, CoreDataError> {
+    private func calculateTotal(type: String, from startDate: Date?, to endDate: Date?) -> Result<Double, RepositoryError> {
         var predicates: [NSPredicate] = [NSPredicate(format: "type == %@", type)]
 
         if let startDate = startDate {

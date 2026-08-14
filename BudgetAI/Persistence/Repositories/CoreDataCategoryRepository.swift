@@ -16,18 +16,18 @@ final class CoreDataCategoryRepository: CategoryRepository {
         self.coreDataManager = coreDataManager
     }
 
-    func fetchAllCategories() -> Result<[Category], CoreDataError> {
+    func fetchAllCategories() -> Result<[Category], RepositoryError> {
         let sortDescriptors = [NSSortDescriptor(key: "name", ascending: true)]
         return coreDataManager.fetch(Category.self, predicate: nil, sortDescriptors: sortDescriptors)
     }
 
-    func fetchCategories(type: String) -> Result<[Category], CoreDataError> {
+    func fetchCategories(type: String) -> Result<[Category], RepositoryError> {
         let predicate = NSPredicate(format: "type == %@", type)
         let sortDescriptors = [NSSortDescriptor(key: "name", ascending: true)]
         return coreDataManager.fetch(Category.self, predicate: predicate, sortDescriptors: sortDescriptors)
     }
 
-    func createCategory(name: String, colorHex: String, icon: String, type: String) -> Result<Category, CoreDataError> {
+    func createCategory(name: String, colorHex: String, icon: String, type: String) -> Result<Category, RepositoryError> {
         let category = coreDataManager.create(Category.self)
         category.id = UUID()
         category.name = name
@@ -38,7 +38,7 @@ final class CoreDataCategoryRepository: CategoryRepository {
         return coreDataManager.saveContext().map { category }
     }
 
-    func deleteCategory(_ category: Category) -> Result<Void, CoreDataError> {
+    func deleteCategory(_ category: Category) -> Result<Void, RepositoryError> {
         return coreDataManager.delete(category)
     }
 }

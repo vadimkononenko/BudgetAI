@@ -8,13 +8,13 @@
 import Foundation
 
 protocol TransactionRepository {
-    func fetchAllTransactions() -> Result<[Transaction], CoreDataError>
-    func fetchTransactions(type: String?, category: Category?) -> Result<[Transaction], CoreDataError>
-    func fetchTransactions(from startDate: Date, to endDate: Date) -> Result<[Transaction], CoreDataError>
-    func fetchTransactions(category: Category, from startDate: Date, to endDate: Date) -> Result<[Transaction], CoreDataError>
-    func createTransaction(amount: Double, type: String, date: Date, description: String?, category: Category) -> Result<Transaction, CoreDataError>
-    func deleteTransaction(_ transaction: Transaction) -> Result<Void, CoreDataError>
-    func calculateTotalIncome(from startDate: Date?, to endDate: Date?) -> Result<Double, CoreDataError>
-    func calculateTotalExpenses(from startDate: Date?, to endDate: Date?) -> Result<Double, CoreDataError>
-    func calculateSpending(for category: Category, from startDate: Date, to endDate: Date) -> Result<Double, CoreDataError>
+    func fetchAllTransactions() -> Result<[Transaction], RepositoryError>
+    func fetchTransactions(type: String?, category: Category?) -> Result<[Transaction], RepositoryError>
+    func fetchTransactions(from startDate: Date, to endDate: Date) -> Result<[Transaction], RepositoryError>
+    func fetchTransactions(category: Category, from startDate: Date, to endDate: Date) -> Result<[Transaction], RepositoryError>
+    func createTransaction(amount: Double, type: String, date: Date, description: String?, category: Category) -> Result<Transaction, RepositoryError>
+    func deleteTransaction(_ transaction: Transaction) -> Result<Void, RepositoryError>
+    func calculateTotalIncome(from startDate: Date?, to endDate: Date?) -> Result<Double, RepositoryError>
+    func calculateTotalExpenses(from startDate: Date?, to endDate: Date?) -> Result<Double, RepositoryError>
+    func calculateSpending(for category: Category, from startDate: Date, to endDate: Date) -> Result<Double, RepositoryError>
 }
