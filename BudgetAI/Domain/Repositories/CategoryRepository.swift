@@ -11,5 +11,6 @@ protocol CategoryRepository {
     func fetchAllCategories() -> Result<[Category], RepositoryError>
     func fetchCategories(type: String) -> Result<[Category], RepositoryError>
     func createCategory(name: String, colorHex: String, icon: String, type: String) -> Result<Category, RepositoryError>
+    func createCategories(_ drafts: [CategoryDraft]) -> Result<Void, RepositoryError>
     func deleteCategory(_ category: Category) -> Result<Void, RepositoryError>
 }

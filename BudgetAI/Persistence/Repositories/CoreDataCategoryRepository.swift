@@ -38,6 +38,20 @@ final class CoreDataCategoryRepository: CategoryRepository {
         return coreDataManager.saveContext().map { category }
     }
 
+    func createCategories(_ drafts: [CategoryDraft]) -> Result<Void, RepositoryError> {
+        for draft in drafts {
+            let category = coreDataManager.create(Category.self)
+            category.id = UUID()
+            category.name = draft.name
+            category.colorHex = draft.colorHex
+            category.icon = draft.icon
+            category.type = draft.type
+        }
+
+        return .failure(.failedToSave(NSError(domain: "test", code: 1)))
+//        return coreDataManager.saveContext()
+    }
+
     func deleteCategory(_ category: Category) -> Result<Void, RepositoryError> {
         return coreDataManager.delete(category)
     }

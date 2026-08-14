@@ -31,20 +31,8 @@ struct DefaultCategorySeeder {
 
         guard existingCategories.isEmpty else { return }
 
-        for draft in drafts {
-            let result = repository.createCategory(
-                name: draft.name,
-                colorHex: draft.colorHex,
-                icon: draft.icon,
-                type: draft.type
-            )
-
-            if case .failure(let error) = result {
-                throw SeedingError.creationFailed(
-                    draft: draft,
-                    underlying: error
-                )
-            }
+        if case .failure(let error) = repository.createCategories(drafts) {
+            throw SeedingError.batchCreationFailed(underlying: error)
         }
     }
 }

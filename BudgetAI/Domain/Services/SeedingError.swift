@@ -9,7 +9,7 @@ import Foundation
 
 enum SeedingError: Error {
     case fetchFailed(underlying: Error)
-    case creationFailed(draft: CategoryDraft, underlying: Error)
+    case batchCreationFailed(underlying: Error)
 }
 
 extension SeedingError: LocalizedError {
@@ -17,8 +17,8 @@ extension SeedingError: LocalizedError {
         switch self {
         case .fetchFailed:
             return "Не вдалося перевірити наявні категорії"
-        case .creationFailed(let draft, _):
-            return "Не вдалося створити категорію \"\(draft.name)\""
+        case .batchCreationFailed:
+            return "Не вдалося створити категорію"
         }
     }
 }
