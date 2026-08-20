@@ -57,10 +57,17 @@ final class DIContainer {
         )
     }()
 
+    private(set) lazy var seedVersionStore: SeedVersionStore = {
+        CoreDataSeedVersionStore(coreDataManager: coreDataManager)
+    }()
+
     // MARK: - Seeders
 
     func makeCategorySeeder() -> DefaultCategorySeeder {
-        DefaultCategorySeeder(repository: categoryRepository)
+        DefaultCategorySeeder(
+            repository: categoryRepository,
+            versionStore: seedVersionStore
+        )
     }
 
     // MARK: - ViewModels Factory

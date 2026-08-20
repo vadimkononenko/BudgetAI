@@ -48,8 +48,7 @@ final class CoreDataCategoryRepository: CategoryRepository {
             category.type = draft.type
         }
 
-        return .failure(.failedToSave(NSError(domain: "test", code: 1)))
-//        return coreDataManager.saveContext()
+        return coreDataManager.saveContext()
     }
 
     func deleteCategory(_ category: Category) -> Result<Void, RepositoryError> {

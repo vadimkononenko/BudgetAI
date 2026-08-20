@@ -8,7 +8,11 @@
 import Foundation
 
 enum DefaultCategories {
-    static let expenseCategories: [CategoryDraft] = [
+    static let versions: [Int: [CategoryDraft]] = [
+        1: expenseCategories + incomeCategories
+    ]
+
+    private static let expenseCategories: [CategoryDraft] = [
         CategoryDraft(name: "Їжа", colorHex: "#FF6B6B", icon: "🍔", type: "expense"),
         CategoryDraft(name: "Транспорт", colorHex: "#4ECDC4", icon: "🚗", type: "expense"),
         CategoryDraft(name: "Розваги", colorHex: "#FFE66D", icon: "🎮", type: "expense"),
@@ -19,15 +23,11 @@ enum DefaultCategories {
         CategoryDraft(name: "Інше", colorHex: "#B5B5B5", icon: "📦", type: "expense")
     ]
 
-    static let incomeCategories: [CategoryDraft] = [
+    private static let incomeCategories: [CategoryDraft] = [
         CategoryDraft(name: "Зарплата", colorHex: "#00D9FF", icon: "💰", type: "income"),
         CategoryDraft(name: "Фріланс", colorHex: "#8AC4FF", icon: "💻", type: "income"),
         CategoryDraft(name: "Інвестиції", colorHex: "#B8E986", icon: "📈", type: "income"),
         CategoryDraft(name: "Подарунок", colorHex: "#FFABAB", icon: "🎁", type: "income"),
         CategoryDraft(name: "Інше", colorHex: "#D4D4D4", icon: "💵", type: "income")
     ]
-
-    static var all: [CategoryDraft] {
-        expenseCategories + incomeCategories
-    }
 }
