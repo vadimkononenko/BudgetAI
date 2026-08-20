@@ -7,31 +7,6 @@
 
 import CoreData
 
-// MARK: - CoreData Errors
-
-enum CoreDataError: Error, LocalizedError {
-    case failedToLoad(Error)
-    case failedToSave(Error)
-    case fetchFailed(Error)
-    case deleteFailed(Error)
-    case notInitialized
-
-    var errorDescription: String? {
-        switch self {
-        case .failedToLoad(let error):
-            return "Не вдалося завантажити базу даних: \(error.localizedDescription)"
-        case .failedToSave(let error):
-            return "Не вдалося зберегти дані: \(error.localizedDescription)"
-        case .fetchFailed(let error):
-            return "Не вдалося отримати дані: \(error.localizedDescription)"
-        case .deleteFailed(let error):
-            return "Не вдалося видалити дані: \(error.localizedDescription)"
-        case .notInitialized:
-            return "База даних не ініціалізована"
-        }
-    }
-}
-
 // MARK: - CoreDataManager
 
 final class CoreDataManager {
@@ -40,7 +15,7 @@ final class CoreDataManager {
 
     let persistentContainer: NSPersistentContainer
     private(set) var isInitialized: Bool = false
-    private(set) var initializationError: CoreDataError?
+    private(set) var initializationError: RepositoryError?
 
     var context: NSManagedObjectContext {
         persistentContainer.viewContext
@@ -144,7 +119,7 @@ final class CoreDataManager {
         return manager
     }
 
-    func saveContext() -> Result<Void, CoreDataError> {
+    func saveContext() -> Result<Void, RepositoryError> {
         guard isInitialized else {
             return .failure(.notInitialized)
         }
@@ -170,7 +145,7 @@ final class CoreDataManager {
         return T(context: context)
     }
 
-    func fetch<T: NSManagedObject>(_ type: T.Type, predicate: NSPredicate? = nil, sortDescriptors: [NSSortDescriptor]? = nil) -> Result<[T], CoreDataError> {
+    func fetch<T: NSManagedObject>(_ type: T.Type, predicate: NSPredicate? = nil, sortDescriptors: [NSSortDescriptor]? = nil) -> Result<[T], RepositoryError> {
         guard isInitialized else {
             return .failure(.notInitialized)
         }
@@ -188,7 +163,7 @@ final class CoreDataManager {
         }
     }
 
-    func delete(_ object: NSManagedObject) -> Result<Void, CoreDataError> {
+    func delete(_ object: NSManagedObject) -> Result<Void, RepositoryError> {
         guard isInitialized else {
             return .failure(.notInitialized)
         }

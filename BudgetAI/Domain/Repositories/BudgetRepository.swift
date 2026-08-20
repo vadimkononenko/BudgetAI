@@ -10,11 +10,11 @@ import Foundation
 // MARK: - Budget Repository Protocol
 
 protocol BudgetRepository {
-    func fetchBudgets(month: Int16, year: Int16) -> Result<[Budget], CoreDataError>
-    func createBudget(amount: Double, month: Int16, year: Int16, category: Category) -> Result<Budget, CoreDataError>
-    func deleteBudget(_ budget: Budget) -> Result<Void, CoreDataError>
-    func fetchBudgetWithSpending(for category: Category, month: Int16, year: Int16) -> Result<BudgetWithSpending, CoreDataError>
-    func fetchAllBudgetsWithSpending(month: Int16, year: Int16) -> Result<[BudgetWithSpending], CoreDataError>
+    func fetchBudgets(month: Int16, year: Int16) -> Result<[Budget], RepositoryError>
+    func createBudget(amount: Double, month: Int16, year: Int16, category: Category) -> Result<Budget, RepositoryError>
+    func deleteBudget(_ budget: Budget) -> Result<Void, RepositoryError>
+    func fetchBudgetWithSpending(for category: Category, month: Int16, year: Int16) -> Result<BudgetWithSpending, RepositoryError>
+    func fetchAllBudgetsWithSpending(month: Int16, year: Int16) -> Result<[BudgetWithSpending], RepositoryError>
 }
 
 // MARK: - Budget With Spending Model

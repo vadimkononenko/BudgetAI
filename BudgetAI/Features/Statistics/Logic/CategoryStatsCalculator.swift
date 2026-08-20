@@ -32,7 +32,7 @@ final class CategoryStatsCalculator {
     func calculateTotals(
         from startDate: Date?,
         to endDate: Date?
-    ) -> Result<(income: Double, expenses: Double), CoreDataError> {
+    ) -> Result<(income: Double, expenses: Double), RepositoryError> {
         let incomeResult = transactionRepository.calculateTotalIncome(from: startDate, to: endDate)
         let expensesResult = transactionRepository.calculateTotalExpenses(from: startDate, to: endDate)
 
@@ -58,8 +58,8 @@ final class CategoryStatsCalculator {
         from startDate: Date?,
         to endDate: Date?,
         totalExpenses: Double
-    ) -> Result<[CategoryStatDisplayModel], CoreDataError> {
-        let transactionsResult: Result<[Transaction], CoreDataError>
+    ) -> Result<[CategoryStatDisplayModel], RepositoryError> {
+        let transactionsResult: Result<[Transaction], RepositoryError>
 
         if let startDate = startDate, let endDate = endDate {
             transactionsResult = transactionRepository.fetchTransactions(from: startDate, to: endDate)

@@ -62,7 +62,7 @@ final class ChartDataFormatter {
         endDate: Date?,
         selectedCategories: Set<String>
     ) -> [DailyExpense] {
-        let transactionsResult: Result<[Transaction], CoreDataError>
+        let transactionsResult: Result<[Transaction], RepositoryError>
 
         if let startDate = startDate, let endDate = endDate {
             transactionsResult = transactionRepository.fetchTransactions(from: startDate, to: endDate)
