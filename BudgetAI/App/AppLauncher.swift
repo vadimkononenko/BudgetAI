@@ -6,3 +6,20 @@
 //
 
 import Foundation
+
+final class AppLauncher {
+    private let seeder: DefaultCategorySeeder
+
+    init(seeder: DefaultCategorySeeder) {
+        self.seeder = seeder
+    }
+
+    func run() -> AppLaunchState {
+        do {
+            try seeder.seedIfNeeded()
+            return .ready
+        } catch {
+            return .failed(error)
+        }
+    }
+}

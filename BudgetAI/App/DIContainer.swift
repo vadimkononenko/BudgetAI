@@ -61,6 +61,10 @@ final class DIContainer {
         CoreDataSeedVersionStore(coreDataManager: coreDataManager)
     }()
 
+    private(set) lazy var appLauncher: AppLauncher = {
+        AppLauncher(seeder: makeCategorySeeder())
+    }()
+
     // MARK: - Seeders
 
     func makeCategorySeeder() -> DefaultCategorySeeder {

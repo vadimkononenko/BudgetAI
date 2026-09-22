@@ -6,3 +6,8 @@
 //
 
 import Foundation
+
+enum AppLaunchState {
+    case ready
+    case failed(Error)
+}
