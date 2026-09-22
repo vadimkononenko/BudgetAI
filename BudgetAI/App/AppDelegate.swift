@@ -14,5 +14,4 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         DefaultData.initializeDefaultCategories()
         return true
     }
-
 }
